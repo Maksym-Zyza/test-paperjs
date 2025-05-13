@@ -3,32 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <title>Paper.js Operator Bounding Box</title>
-    <!-- paperjs -->
+    <!-- Paper.js -->
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.15/paper-full.min.js"
       integrity="sha512-ovjLI1ZcZe6bw+ImQ21r+sv8q/Vwob2kq7tFidK6E1LWfi0T4uobbmpfEU1//a9h9o5Kkt+MnMWf6rWlg0EiMw=="
       crossorigin="anonymous"
     ></script>
+    <style>
+      #container {
+        position: relative;
+        display: inline-block;
+      }
 
-    <link rel="stylesheet" href="./styles.css" />
+      #img {
+        display: block;
+        /* width: 100%;
+        max-width: 900px;
+        height: auto; */
+      }
+
+      #myCanvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .label {
+        position: absolute;
+        font-size: 12px;
+        padding: 2px 4px;
+        font-family: sans-serif;
+        border-radius: 3px;
+        z-index: 1;
+      }
+    </style>
   </head>
   <body>
     <div id="container">
       <img
-        src="https://storage.googleapis.com/tqv-prd-ssb01-data/friends/dp4cam01_ssb01_prd/video0/table5_l_operator/annotated/2025/05/13/13/c4aac411406f_video0_1747143369.0_table5_l_operator_annotated.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=portal-storage%40prod1-svc-rbzn.iam.gserviceaccount.com%2F20250513%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20250513T152031Z&X-Goog-Expires=1200&X-Goog-SignedHeaders=host&X-Goog-Signature=7b50f8a191076fcfbf2c946361ac9b0e60f5262add36d6759fdfb65ad25bdc3c93d2517b1e4a00ea5a26a83ca974d2babc1eb0f6e9274c3740670166b5ebe5c707f2f5fb5416425cd9160c6323f44f53cd58c6538327ae00171169c9acbaa09a46aad60d60e9e22c56515b15544d4da53bedb39f7551171dccacbf6b05fefc75e2f82098f9dce8974149afabebcc9e49319e531a98ea8bfcdbcc8af80dc5b6496a2fd1687f198649de9b89b84f1ab17ca83b469d7852da9a63763d502b6ea13e734ee694c065331b88f6ae11d845ee17596bfdbcdef8f21fe4f26f071c9bd443d0a713b02d8827d1ac5b7e257441010e2d4b412101a6f4f09de876b073ccc489"
-        width="900"
         id="img"
+        src="https://storage.googleapis.com/tqv-prd-ssb01-data/friends/dp4cam01_ssb01_prd/video0/table5_l_operator/annotated/2025/05/13/13/c4aac411406f_video0_1747143369.0_table5_l_operator_annotated.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=portal-storage%40prod1-svc-rbzn.iam.gserviceaccount.com%2F20250513%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20250513T154611Z&X-Goog-Expires=1200&X-Goog-SignedHeaders=host&X-Goog-Signature=8500b8624a2d53fed3f6572c3ad291b9b19ed962db9d349c4df06a7641dfebdbc763082ba6406cff1a66cc118085da99fef10b7381d08c837377b0b0237793e48267dce5a22f1628b57a12fc33e14039267d72cd24cc01640981ac9b4bf43453cc611e83765a5616de8f0767c13d8fd597e702655fe859809df4c7c1de8a0b9cbfec19e78afde5bd0be3ca662470b3fa9200d8429d0b73db9847fd6a7002ea2bf5de0544a3e5dc10ecedda5c00b35db1fadf70030c60c1f4d399ca49e7ff7d25d2c69350ad901ea5ee975f387b34dd48b47c12a13562141c5ca0cbb054b97eac7a27cc21831bc7f0dc451de5390a9495a5af6cbe82dc10d42df768bc78155e94"
+        onload="initBoundingBoxes()"
       />
-      <canvas id="myCanvas" resize></canvas>
-      <!-- Label буде доданий динамічно -->
+      <canvas id="myCanvas"></canvas>
     </div>
 
     <script type="text/javascript">
-      paper.setup("myCanvas");
-
-      const canvasWidth = paper.view.size.width;
-      const canvasHeight = paper.view.size.height;
-
       const bboxes = {
         operator: [[62, 223, 76, 68, 0.9999785423278809]],
         person: [
@@ -38,35 +60,49 @@
         ],
       };
 
+      // Функція для малювання фреймів
       function drawBoundingBox([x, y, width, height], color, labelText) {
-        // Створюємо фрейм
         new paper.Path.Rectangle({
           rectangle: new paper.Rectangle(x, y, width, height),
           strokeColor: color,
           strokeWidth: 2,
         });
 
-        // Додаємо мітку
         const label = document.createElement("div");
         label.className = "label";
         label.textContent = labelText;
-        label.style.left = `${x - 1}px`;
-        label.style.top = `${y - 16}px`;
-        label.style.background = color;
+        label.style.left = `${x}px`;
+        label.style.top = `${y - 18}px`;
+        label.style.backgroundColor = color;
         document.getElementById("container").appendChild(label);
       }
 
-      // Малюємо всі фрейми для операторів
-      bboxes.operator.forEach((box) =>
-        drawBoundingBox(box.slice(0, 4), "deepskyblue", "operator")
-      );
+      // Ініціалізація фреймів на завантаженій картинці
+      function initBoundingBoxes() {
+        const img = document.getElementById("img");
+        const canvas = document.getElementById("myCanvas");
 
-      // Малюємо всі фрейми для осіб
-      bboxes.person.forEach(
-        (box) => drawBoundingBox(box.slice(0, 4), "deepskyblue", "person") //lightgreen
-      );
+        // Синхронізуємо розміри canvas з розмірами картинки
+        canvas.width = img.width;
+        canvas.height = img.height;
+        console.log(img.width, img.height);
 
-      paper.view.draw();
+        paper.setup(canvas);
+
+        bboxes.operator.forEach((box) =>
+          drawBoundingBox(box.slice(0, 4), "deepskyblue", "operator")
+        );
+        bboxes.person.forEach((box) =>
+          drawBoundingBox(box.slice(0, 4), "deepskyblue", "person")
+        );
+
+        paper.view.draw();
+      }
+
+      // Оновлення фреймів при зміні розміру картинки
+      window.addEventListener("resize", () => {
+        initBoundingBoxes();
+      });
     </script>
   </body>
 </html>

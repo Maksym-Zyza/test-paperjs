@@ -17,9 +17,8 @@
 
       #img {
         display: block;
-        /* width: 100%;
-        max-width: 900px;
-        height: auto; */
+        width: 100%;
+        height: auto;
       }
 
       #myCanvas {
@@ -44,7 +43,7 @@
     <div id="container">
       <img
         id="img"
-        src="https://storage.googleapis.com/tqv-prd-ssb01-data/friends/dp4cam01_ssb01_prd/video0/table5_l_operator/annotated/2025/05/13/13/c4aac411406f_video0_1747143369.0_table5_l_operator_annotated.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=portal-storage%40prod1-svc-rbzn.iam.gserviceaccount.com%2F20250513%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20250513T154611Z&X-Goog-Expires=1200&X-Goog-SignedHeaders=host&X-Goog-Signature=8500b8624a2d53fed3f6572c3ad291b9b19ed962db9d349c4df06a7641dfebdbc763082ba6406cff1a66cc118085da99fef10b7381d08c837377b0b0237793e48267dce5a22f1628b57a12fc33e14039267d72cd24cc01640981ac9b4bf43453cc611e83765a5616de8f0767c13d8fd597e702655fe859809df4c7c1de8a0b9cbfec19e78afde5bd0be3ca662470b3fa9200d8429d0b73db9847fd6a7002ea2bf5de0544a3e5dc10ecedda5c00b35db1fadf70030c60c1f4d399ca49e7ff7d25d2c69350ad901ea5ee975f387b34dd48b47c12a13562141c5ca0cbb054b97eac7a27cc21831bc7f0dc451de5390a9495a5af6cbe82dc10d42df768bc78155e94"
+        src="https://storage.googleapis.com/tqv-prd-ssb01-data/friends/dp4cam01_ssb01_prd/video0/table5_l_operator/annotated/2025/05/13/13/c4aac411406f_video0_1747143369.0_table5_l_operator_annotated.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=portal-storage%40prod1-svc-rbzn.iam.gserviceaccount.com%2F20250513%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20250513T155214Z&X-Goog-Expires=1200&X-Goog-SignedHeaders=host&X-Goog-Signature=11f5c6aa7cd9214922a74aed2e22665fbf2b3de877cdeef77064ca6da7375197ecce5ae96400956f0c7ecdaabc5b8305a4fa0820d9fb172790692a60e17c32f272e7a955b5e6e0c182be18c50d6a03322dbe4a025d54ecace8ae86c8ce5b71a9aa6797c44a0d23c1b2cd26ca6cf82ccf3cbb73016a78f734ee0766bf8b6fbc44e7c943e7a36031d862948bec2400d2a8569d6a0f7076b4de56bf4b2f21995d08d68f0b9b0be77ec300722ea46c6889bc0ccbe16df0569c896d99f109c2d9f91c4b2f333459c4119d02cb14120a7af268c9218997f49edf9d012bf463c227e3d485de72ac74f75964c97ca545e6fd57ab3e2eed431500686d66ebac57f51ec21d"
         onload="initBoundingBoxes()"
       />
       <canvas id="myCanvas"></canvas>
@@ -89,12 +88,30 @@
 
         paper.setup(canvas);
 
-        bboxes.operator.forEach((box) =>
-          drawBoundingBox(box.slice(0, 4), "deepskyblue", "operator")
-        );
-        bboxes.person.forEach((box) =>
-          drawBoundingBox(box.slice(0, 4), "deepskyblue", "person")
-        );
+        // Масштабування координат
+        const imgWidth = img.naturalWidth;
+        const imgHeight = img.naturalHeight;
+
+        const scaleX = img.width / imgWidth;
+        const scaleY = img.height / imgHeight;
+
+        // Масштабуємо фрейми
+        bboxes.operator.forEach((box) => {
+          const [x, y, width, height] = box.slice(0, 4);
+          drawBoundingBox(
+            [x * scaleX, y * scaleY, width * scaleX, height * scaleY],
+            "deepskyblue",
+            "operator"
+          );
+        });
+        bboxes.person.forEach((box) => {
+          const [x, y, width, height] = box.slice(0, 4);
+          drawBoundingBox(
+            [x * scaleX, y * scaleY, width * scaleX, height * scaleY],
+            "deepskyblue",
+            "person"
+          );
+        });
 
         paper.view.draw();
       }

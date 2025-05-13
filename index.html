@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Paper.js Operator Bounding Box</title>
+    <!-- paperjs -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.15/paper-full.min.js"
+      integrity="sha512-ovjLI1ZcZe6bw+ImQ21r+sv8q/Vwob2kq7tFidK6E1LWfi0T4uobbmpfEU1//a9h9o5Kkt+MnMWf6rWlg0EiMw=="
+      crossorigin="anonymous"
+    ></script>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #container {
+        position: relative;
+        width: 100%;
+        /* height: 100%; */
+      }
+
+      #myCanvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      #img {
+        width: 100%;
+        height: auto;
+        display: block;
+        object-fit: contain;
+        border-style: solid;
+        border-color: coral;
+      }
+
+      .label {
+        position: absolute;
+        padding: 2px 6px;
+        font-size: 10px;
+        z-index: 2;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <img
+        src="https://storage.googleapis.com/tqv-prd-ssb01-data/friends/dp4cam01_ssb01_prd/video0/table5_l_operator/annotated/2025/05/13/13/c4aac411406f_video0_1747143369.0_table5_l_operator_annotated.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=portal-storage%40prod1-svc-rbzn.iam.gserviceaccount.com%2F20250513%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20250513T145956Z&X-Goog-Expires=1200&X-Goog-SignedHeaders=host&X-Goog-Signature=8e6bde750bf56121498a8102080f9ab865efbb1338c2c84c1538482b48dd9b64a8f17b1b69d9823ebfa1c87213a6b0fdb9be17872792e8ed115cc141dafceee951a5b970a11f683c3db0235d320e551bbee0434a8afd9320c6cc659fd97ad3185760f50246eefedf45c344d4db9266492310a03bf8deef6da86495f85a1b5cd3e2b383807fbdb64d82fec3fbaf6914c02150b5e40836f368b3b6248aafa31420809554251562d8e561519a0f2b03f0a29ec3b4493a83cf8e5ab58542bb1def8806e7e0a921ed8c4b2ef1752b6143e3febdc698611f6294335968376156d1e32bbc0d6c9b8a4e4b17d78d631ab9692f038f89c8c254e46339395df8bb8f1b8062"
+        width="900"
+        id="img"
+      />
+      <canvas id="myCanvas" resize></canvas>
+      <!-- Label буде доданий динамічно -->
+    </div>
+
+    <script type="text/javascript">
+      paper.setup("myCanvas");
+
+      const canvasWidth = paper.view.size.width;
+      const canvasHeight = paper.view.size.height;
+
+      const bboxes = {
+        operator: [[62, 223, 76, 68, 0.9999785423278809]],
+        person: [
+          [201, 337, 108, 87, 0.9999704360961914],
+          [363, 147, 63, 86, 0.9978601336479187],
+          [53, 395, 73, 97, 0.9558233618736267],
+        ],
+      };
+
+      function drawBoundingBox([x, y, width, height], color, labelText) {
+        // Для координат, переданих в пікселях, без додаткового масштабування:
+        // Створюємо фрейм
+        new paper.Path.Rectangle({
+          rectangle: new paper.Rectangle(x, y, width, height),
+          strokeColor: color,
+          strokeWidth: 2,
+        });
+
+        // Додаємо мітку
+        const label = document.createElement("div");
+        label.className = "label";
+        label.textContent = labelText;
+        label.style.left = `${x - 1}px`;
+        label.style.top = `${y - 16}px`;
+        label.style.background = color;
+        document.getElementById("container").appendChild(label);
+      }
+
+      // Малюємо всі фрейми для операторів
+      bboxes.operator.forEach((box) =>
+        drawBoundingBox(box.slice(0, 4), "deepskyblue", "operator")
+      );
+
+      // Малюємо всі фрейми для осіб
+      bboxes.person.forEach(
+        (box) => drawBoundingBox(box.slice(0, 4), "deepskyblue", "person") //lightgreen
+      );
+
+      paper.view.draw();
+    </script>
+  </body>
+</html>

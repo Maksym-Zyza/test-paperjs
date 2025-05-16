@@ -1,0 +1,287 @@
+<script type="text/x-template" id="vision-media-popup-component-template">
+  <!-- Modal -->
+  <div class="modal" id="jsonModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+      <div v-if="imageStepData!=null" class="modal-dialog modal-xl" role="document">
+          <div class="modal-content">
+              <div class="modal-header">
+                  <h5 class="modal-title" id="exampleModalLabel">
+                      <span v-if="isImg" class="mr-4">
+                          <span v-bind:class="modalMode!='image' ? 'btn btn-light' : ''" @click="modalMode='image'">Image</span>
+                      </span>
+                      <span v-if="isMov" class="mr-4">
+                          <span v-bind:class="modalMode!='video' ? 'btn btn-light' : ''" @click="modalMode='video'">Video</span>
+                      </span>
+                      <span class="mr-4">
+                          <span v-bind:class="modalMode!='stepOutput' ? 'btn btn-light' : ''" @click="modalMode='stepOutput'">StepOutput</span>
+                      </span>
+                  </h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @click="hideJsonModal"></button>
+              </div>
+              <div v-if="modalMode=='stepOutput'" class="modal-body" style="overflow: auto; max-height: 60rem;">
+                  <div>
+                      <label style="width:105px;">Collection Time:</label>
+                      {{moment(imageStepData.collection_time).format()}}
+                  </div>
+                  <div>
+                      <label style="width:105px;">Insertion  Time:</label>
+                      {{moment(imageStepData.insert_time).format()}}
+                  </div>
+                  <div>
+                      <label style="width:105px;">Freshness (sec):</label>
+                      {{Math.round((moment(imageStepData.insert_time)-moment(imageStepData.collection_time))/1000)}}
+                  </div>
+                  <pre>
+                <code>{{JSON.stringify(imageStepData, null, 2)}}</code>
+                  </pre>
+              </div>
+              <div v-if="modalMode=='image'" id="img-container">
+                  <img :src="imageStepData.media_links_signed[imageIndex]" id="img"/>
+                  <canvas v-if="showAnnotations" id="img-canvas"></canvas>
+              </div>
+              <div v-if="modalMode=='video'" class="modal-body" style="overflow: auto; max-height: 60rem;">
+                  <video :src="imageStepData.media_links_signed[imageIndex]" width="900" muted controls style="float: left; border-style: solid; border-color: coral;"></video>
+              </div>
+              <div class="modal-footer">
+                  <span v-if="timestamp" style="margin-right: auto; color: coral;">{{moment(imageStepData.collection_time).format()}}</span>
+                  <span>TEST2</span>
+                  <button type="button" class="btn btn-secondary" @click="hideJsonModal">Close</button>
+              </div>
+          </div>
+      </div>
+  </div>
+</script>
+
+<script>
+  var visionMediaPopupComponent = {
+    template: "#vision-media-popup-component-template",
+    props: [
+      "imageStepId",
+      "visionDbName",
+      "imageName",
+      "showAnnotations",
+      "timestamp",
+    ],
+    data() {
+      return {
+        imageStepData: null,
+        modalMode: null,
+        isImg: false,
+        isMov: false,
+        imageIndex: 0,
+        moment: moment,
+        // ===>
+        bboxes: [],
+      };
+    },
+    methods: {
+      // ===> Функція для конвертації анотацій
+      convertAnnotationsToBboxes(annotations) {
+        const bboxes = {};
+
+        for (const category in annotations) {
+          for (const id in annotations[category]) {
+            const item = annotations[category][id];
+            const label = item.label || item.rtype; // fallback
+
+            const coords = [...item.coords];
+            if (
+              item.threshold !== undefined &&
+              typeof item.threshold === "number"
+            ) {
+              coords.push(item.threshold);
+            }
+
+            // Використовуємо label як ключ
+            if (!bboxes[label]) {
+              bboxes[label] = [];
+            }
+
+            bboxes[label].push(coords);
+          }
+        }
+
+        return bboxes;
+      },
+
+      // Функція для малювання фреймів
+      drawBoundingBox([x, y, width, height], color, labelText) {
+        new paper.Path.Rectangle({
+          rectangle: new paper.Rectangle(x, y, width, height),
+          strokeColor: color,
+          strokeWidth: 2,
+        });
+        console.log(img.width, img.height);
+
+        const label = document.createElement("div");
+        label.className = "label";
+        label.textContent = labelText;
+        label.style.left = `${x - 1}px`;
+        label.style.top = `${y - 16}px`;
+        label.style.fontSize = `${10}px`;
+        label.style.backgroundColor = color;
+        document.getElementById("img-container").appendChild(label);
+      },
+
+      // Ініціалізація фреймів на завантаженій картинці
+      initBoundingBoxes() {
+        const img = document.getElementById("img");
+        const canvas = document.getElementById("img-canvas");
+
+        // Видалити всі старі лейбли перед оновленням
+        const existingLabels = document.querySelectorAll(".label");
+        existingLabels.forEach((label) => label.remove());
+
+        // Синхронізуємо розміри canvas з розмірами картинки
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        paper.setup(canvas);
+
+        // Масштабування координат
+        const scaleX = img.width / img.naturalWidth;
+        const scaleY = img.height / img.naturalHeight;
+
+        // Масштабуємо фрейми
+        const categories = [
+          { label: "operator", color: "deepskyblue" },
+          { label: "person", color: "lightgreen" },
+          { label: "Workstation", color: "tomato" },
+        ];
+
+        categories.forEach(({ label, color }) => {
+          (this.bboxes[label] || []).forEach((box) => {
+            const [x, y, width, height] = box.slice(0, 4);
+            this.drawBoundingBox(
+              [x * scaleX, y * scaleY, width * scaleX, height * scaleY],
+              color,
+              label
+            );
+          });
+        });
+
+        paper.view.draw();
+      },
+      // ===>
+
+      setModalMode: function (aMode) {
+        this.isImg = false;
+        this.isMov = false;
+        switch (aMode) {
+          case "image":
+            this.isImg = true;
+            this.modalMode = "image";
+            break;
+          case "video":
+            this.isMov = true;
+            this.modalMode = "video";
+            break;
+          case "none":
+            this.modalMode = "stepOutput";
+            break;
+          default:
+            // but that's impossible!
+            break;
+        }
+      },
+      showJsonModal: async function () {
+        let image_step = await VisionSdk.GetImageStepByIdAsync(
+          this.imageStepId,
+          this.visionDbName
+        );
+
+        image_step.media_links_signed =
+          await VisionSdk.GetMediaLinksSignedAsync(image_step.images);
+
+        if (image_step.images == null) {
+          // if we don't have any images, we can only show the image_step json data
+          this.setModalMode("none");
+        } else if (image_step.images.length == 0) {
+          // if we don't have any images, we can only show the image_step json data
+          this.setModalMode("none");
+        } else {
+          if (this.imageName) {
+            // use the image name provided
+            this.imageIndex = image_step.images.findIndex((x) =>
+              x.endsWith(this.imageName)
+            );
+          }
+          this.setModalMode(image_step["media_link_types"][this.imageIndex]);
+        }
+
+        if (this.showAnnotations) {
+          image_step.mediaWithAnnotationConfig = {
+            databaseName: this.visionDbName,
+            hostName: image_step.host_name,
+            stepName: image_step.step_name,
+            imageName: this.imageName,
+            imageStepId: image_step.image_step_id,
+          };
+        }
+
+        this.imageStepData = image_step;
+
+        //===>
+        console.log("image_step>>", image_step.step_output.annotations);
+
+        // this.bboxes = image_step.step_output.bboxes;
+        this.bboxes = this.convertAnnotationsToBboxes(
+          image_step.step_output.annotations
+        );
+
+        this.$nextTick(() => {
+          const img = document.getElementById("img");
+          if (img && this.showAnnotations) {
+            img.addEventListener("load", () => {
+              this.initBoundingBoxes();
+            });
+
+            // Якщо зображення вже кешоване і не викликає 'load'
+            if (img.complete) {
+              this.initBoundingBoxes();
+            }
+          }
+        });
+
+        console.log("this.bboxes>", this.bboxes);
+        // Оновлення фреймів при зміні розміру картинки
+        window.addEventListener("resize", () => {
+          this.initBoundingBoxes();
+        });
+
+        $("#jsonModal").show();
+      },
+      hideJsonModal: function () {
+        $("#jsonModal").hide();
+      },
+    },
+  };
+</script>
+
+<style>
+  #img-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  #img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  #img-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .label {
+    position: absolute;
+    padding: 0 4px;
+    font-family: sans-serif;
+    border-radius: 2px;
+    z-index: 20;
+  }
+</style>

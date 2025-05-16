@@ -10,7 +10,7 @@
       crossorigin="anonymous"
     ></script>
     <style>
-      #container {
+      #img-container {
         position: relative;
         display: inline-block;
       }
@@ -21,7 +21,7 @@
         height: auto;
       }
 
-      #myCanvas {
+      #img-canvas {
         position: absolute;
         top: 0;
         left: 0;
@@ -31,33 +31,154 @@
 
       .label {
         position: absolute;
-        font-size: 12px;
         padding: 2px 4px;
         font-family: sans-serif;
-        border-radius: 3px;
-        z-index: 1;
+        border-radius: 2px;
+        z-index: 20;
       }
     </style>
   </head>
   <body>
-    <div id="container">
+    <div id="img-container">
       <img
         id="img"
-        src="https://storage.googleapis.com/tqv-prd-ssb01-data/friends/dp4cam01_ssb01_prd/video0/table5_l_operator/annotated/2025/05/13/13/c4aac411406f_video0_1747143369.0_table5_l_operator_annotated.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=portal-storage%40prod1-svc-rbzn.iam.gserviceaccount.com%2F20250513%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20250513T155214Z&X-Goog-Expires=1200&X-Goog-SignedHeaders=host&X-Goog-Signature=11f5c6aa7cd9214922a74aed2e22665fbf2b3de877cdeef77064ca6da7375197ecce5ae96400956f0c7ecdaabc5b8305a4fa0820d9fb172790692a60e17c32f272e7a955b5e6e0c182be18c50d6a03322dbe4a025d54ecace8ae86c8ce5b71a9aa6797c44a0d23c1b2cd26ca6cf82ccf3cbb73016a78f734ee0766bf8b6fbc44e7c943e7a36031d862948bec2400d2a8569d6a0f7076b4de56bf4b2f21995d08d68f0b9b0be77ec300722ea46c6889bc0ccbe16df0569c896d99f109c2d9f91c4b2f333459c4119d02cb14120a7af268c9218997f49edf9d012bf463c227e3d485de72ac74f75964c97ca545e6fd57ab3e2eed431500686d66ebac57f51ec21d"
+        src="https://storage.googleapis.com/tqv-prd-ssb01-data/friends/dp4cam01_ssb01_prd/video0/table5_r_operator/annotated/2025/05/12/17/c4aac411406f_video0_1747069314.0_table5_r_operator_annotated.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=portal-storage%40prod1-svc-rbzn.iam.gserviceaccount.com%2F20250515%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20250515T161225Z&X-Goog-Expires=1200&X-Goog-SignedHeaders=host&X-Goog-Signature=512e8914db1bc43e75d5d50c35953a3d7fc51bdbe4f3ce125f57dd98e0356ef88f523457602697d86017b9be439424294e4863520221104c647f83d9d289f404ee6aa010436488ad1eb97b3e4ccda9025e3ce81ead89dda91883608892830687f6743a92103279b1c771638b2ebc663018808437ff615a88d8d086fe6bdd768befbad0095e17ed9383f2f38548afca49c37199534085ebde00e5406b44fe90bfe85f50e4dd482cdcda168f25b998d2817a1d8cc657803cc45fda587f69bae9f531093b3b0523cc5069d6494c852b2cf4ad3632872a212571328936779c9b6d03204c25bb61b2e26f16f5bfe289662d09627919772886a4cca410aa5e5d42fc23"
         onload="initBoundingBoxes()"
       />
-      <canvas id="myCanvas"></canvas>
+      <canvas id="img-canvas"></canvas>
     </div>
 
     <script type="text/javascript">
-      const bboxes = {
-        operator: [[62, 223, 76, 68, 0.9999785423278809]],
-        person: [
-          [201, 337, 108, 87, 0.9999704360961914],
-          [363, 147, 63, 86, 0.9978601336479187],
-          [53, 395, 73, 97, 0.9558233618736267],
-        ],
+      const annotations = {
+        operator: {
+          140041368577832: {
+            atype_name: "subject",
+            color_space: "rgb",
+            coords: [109, 64, 55, 77],
+            label: "operator",
+            origins: [
+              "gs://tqv-prd-ssb01-rawdata/image_readings/dp4cam01_ssb01_prd/video0/atlftpd/2025/05/12/17/c4aac411406f_video0_1747069314.000000_atlftpd_scheduled.jpg",
+            ],
+            point: "(136.0,114.0)",
+            result: null,
+            rtype: "operator",
+            threshold: 0.9585131406784058,
+          },
+          140043555318344: {
+            atype_name: "anonymous_subject",
+            color_space: "rgb",
+            coords: [109, 64, 55, 77],
+            label: "operator",
+            origins: [
+              "gs://tqv-prd-ssb01-rawdata/image_readings/dp4cam01_ssb01_prd/video0/atlftpd/2025/05/12/17/c4aac411406f_video0_1747069314.000000_atlftpd_scheduled.jpg",
+            ],
+            point: "(136.0,114.0)",
+            result: null,
+            rtype: "operator",
+            threshold: 0.9585131406784058,
+          },
+        },
+        person: {
+          140041368577352: {
+            atype_name: "subject",
+            color_space: "rgb",
+            coords: [486, 599, 125, 94],
+            label: "person",
+            origins: [
+              "gs://tqv-prd-ssb01-rawdata/image_readings/dp4cam01_ssb01_prd/video0/atlftpd/2025/05/12/17/c4aac411406f_video0_1747069314.000000_atlftpd_scheduled.jpg",
+            ],
+            point: "(548.0,646.0)",
+            result: null,
+            rtype: "person",
+            threshold: 0.9829328060150146,
+          },
+          140041371239432: {
+            atype_name: "subject",
+            color_space: "rgb",
+            coords: [319, 199, 107, 88],
+            label: "person",
+            origins: [
+              "gs://tqv-prd-ssb01-rawdata/image_readings/dp4cam01_ssb01_prd/video0/atlftpd/2025/05/12/17/c4aac411406f_video0_1747069314.000000_atlftpd_scheduled.jpg",
+            ],
+            point: "(372.0,243.0)",
+            result: null,
+            rtype: "person",
+            threshold: 0.9992940425872803,
+          },
+          140041375495176: {
+            atype_name: "anonymous_subject",
+            color_space: "rgb",
+            coords: [486, 599, 125, 94],
+            label: "person",
+            origins: [
+              "gs://tqv-prd-ssb01-rawdata/image_readings/dp4cam01_ssb01_prd/video0/atlftpd/2025/05/12/17/c4aac411406f_video0_1747069314.000000_atlftpd_scheduled.jpg",
+            ],
+            point: "(548.0,646.0)",
+            result: null,
+            rtype: "person",
+            threshold: 0.9829328060150146,
+          },
+          140041398061960: {
+            atype_name: "anonymous_subject",
+            color_space: "rgb",
+            coords: [319, 199, 107, 88],
+            label: "person",
+            origins: [
+              "gs://tqv-prd-ssb01-rawdata/image_readings/dp4cam01_ssb01_prd/video0/atlftpd/2025/05/12/17/c4aac411406f_video0_1747069314.000000_atlftpd_scheduled.jpg",
+            ],
+            point: "(372.0,243.0)",
+            result: null,
+            rtype: "person",
+            threshold: 0.9992940425872803,
+          },
+        },
+        region: {
+          140041399920904: {
+            atype_name: "region",
+            color_space: "rgb",
+            coords: [90, 60, 160, 260],
+            label: "Workstation",
+            origins: [
+              "gs://tqv-prd-ssb01-rawdata/image_readings/dp4cam01_ssb01_prd/video0/atlftpd/2025/05/12/17/c4aac411406f_video0_1747069314.000000_atlftpd_scheduled.jpg",
+            ],
+            point: "(170.0,229.0)",
+            result: null,
+            rtype: "region",
+            threshold: 0.5,
+          },
+        },
       };
+
+      const bboxes = convertAnnotationsToBboxes(annotations);
+      console.log("bboxes>", bboxes);
+
+      function convertAnnotationsToBboxes(annotations) {
+        const bboxes = {};
+
+        for (const category in annotations) {
+          for (const id in annotations[category]) {
+            const item = annotations[category][id];
+            const label = item.label || item.rtype; // fallback
+
+            const coords = [...item.coords];
+            if (
+              item.threshold !== undefined &&
+              typeof item.threshold === "number"
+            ) {
+              coords.push(item.threshold);
+            }
+
+            // Використовуємо label як ключ
+            if (!bboxes[label]) {
+              bboxes[label] = [];
+            }
+
+            bboxes[label].push(coords);
+          }
+        }
+
+        return bboxes;
+      }
 
       // Функція для малювання фреймів
       function drawBoundingBox([x, y, width, height], color, labelText) {
@@ -66,51 +187,53 @@
           strokeColor: color,
           strokeWidth: 2,
         });
+        console.log(img.width, img.height);
 
         const label = document.createElement("div");
         label.className = "label";
         label.textContent = labelText;
-        label.style.left = `${x}px`;
-        label.style.top = `${y - 18}px`;
+        label.style.left = `${x - 1}px`;
+        label.style.top = `${y - 16}px`;
+        label.style.fontSize = `${10}px`;
         label.style.backgroundColor = color;
-        document.getElementById("container").appendChild(label);
+        document.getElementById("img-container").appendChild(label);
       }
 
       // Ініціалізація фреймів на завантаженій картинці
       function initBoundingBoxes() {
         const img = document.getElementById("img");
-        const canvas = document.getElementById("myCanvas");
+        const canvas = document.getElementById("img-canvas");
+
+        // Видалити всі старі лейбли перед оновленням
+        const existingLabels = document.querySelectorAll(".label");
+        existingLabels.forEach((label) => label.remove());
 
         // Синхронізуємо розміри canvas з розмірами картинки
         canvas.width = img.width;
         canvas.height = img.height;
-        console.log(img.width, img.height);
 
         paper.setup(canvas);
 
         // Масштабування координат
-        const imgWidth = img.naturalWidth;
-        const imgHeight = img.naturalHeight;
-
-        const scaleX = img.width / imgWidth;
-        const scaleY = img.height / imgHeight;
+        const scaleX = img.width / img.naturalWidth;
+        const scaleY = img.height / img.naturalHeight;
 
         // Масштабуємо фрейми
-        bboxes.operator.forEach((box) => {
-          const [x, y, width, height] = box.slice(0, 4);
-          drawBoundingBox(
-            [x * scaleX, y * scaleY, width * scaleX, height * scaleY],
-            "deepskyblue",
-            "operator"
-          );
-        });
-        bboxes.person.forEach((box) => {
-          const [x, y, width, height] = box.slice(0, 4);
-          drawBoundingBox(
-            [x * scaleX, y * scaleY, width * scaleX, height * scaleY],
-            "deepskyblue",
-            "person"
-          );
+        const categories = [
+          { label: "operator", color: "deepskyblue" },
+          { label: "person", color: "lightgreen" },
+          { label: "Workstation", color: "tomato" },
+        ];
+
+        categories.forEach(({ label, color }) => {
+          (bboxes[label] || []).forEach((box) => {
+            const [x, y, width, height] = box.slice(0, 4);
+            drawBoundingBox(
+              [x * scaleX, y * scaleY, width * scaleX, height * scaleY],
+              color,
+              label
+            );
+          });
         });
 
         paper.view.draw();

@@ -1,0 +1,138 @@
+<script type="text/x-template" id="vision-media-popup-component-template">
+    <!-- Modal -->
+    <div class="modal" id="jsonModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div v-if="imageStepData!=null" class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">
+                        <span v-if="isImg" class="mr-4">
+                            <span v-bind:class="modalMode!='image' ? 'btn btn-light' : ''" @click="modalMode='image'">Image</span>
+                        </span>
+                        <span v-if="isMov" class="mr-4">
+                            <span v-bind:class="modalMode!='video' ? 'btn btn-light' : ''" @click="modalMode='video'">Video</span>
+                        </span>
+                        <span class="mr-4">
+                            <span v-bind:class="modalMode!='stepOutput' ? 'btn btn-light' : ''" @click="modalMode='stepOutput'">StepOutput</span>
+                        </span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @click="hideJsonModal"></button>
+                </div>
+                <div v-if="modalMode=='stepOutput'" class="modal-body" style="overflow: auto; max-height: 60rem;">
+                    <div>
+                        <label style="width:105px;">Collection Time:</label>
+                        {{moment(imageStepData.collection_time).format()}}
+                    </div>
+                    <div>
+                        <label style="width:105px;">Insertion  Time:</label>
+                        {{moment(imageStepData.insert_time).format()}}
+                    </div>
+                    <div>
+                        <label style="width:105px;">Freshness (sec):</label>
+                        {{Math.round((moment(imageStepData.insert_time)-moment(imageStepData.collection_time))/1000)}}
+                    </div>
+                    <pre>
+<code>{{JSON.stringify(imageStepData, null, 2)}}
+</code>
+                    </pre>
+                </div>
+                <div v-if="modalMode=='image'" class="modal-body" style="overflow: auto; max-height: 60rem;">
+                    <vision-media-view-component v-if="showAnnotations" style="height:506px;"
+                        :ref="`popup_img_ref_visionMediaViewComponent_${imageStepData.image_step_id}`" 
+                        :id="`popup_img_id_${imageStepData.image_step_id}`" 
+                        :key="`popup_img_key_${imageStepData.image_step_id}`"
+                        :h-px="506"
+                        :w-px="900"
+                        :config="imageStepData.mediaWithAnnotationConfig" 
+                        mode="explicit"
+                        :show-config-cog="false"
+                    >
+                    </vision-media-view-component>
+                    <img v-else :src="imageStepData.media_links_signed[imageIndex]" width="900" />
+                </div>
+                <div v-if="modalMode=='video'" class="modal-body" style="overflow: auto; max-height: 60rem;">
+                    <video :src="imageStepData.media_links_signed[imageIndex]" width="900" muted controls style="float: left; border-style: solid; border-color: coral;"></video>
+                </div>
+                <div class="modal-footer">
+                    <span v-if="timestamp" style="margin-right: auto; color: coral;">{{moment(imageStepData.collection_time).format()}}</span>
+                    <button type="button" class="btn btn-secondary" @click="hideJsonModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script>
+    var visionMediaPopupComponent = {
+        template: '#vision-media-popup-component-template',
+        props: ["imageStepId", "visionDbName", "imageName", "showAnnotations", "timestamp"],
+        data() {
+            return { 
+                imageStepData: null,
+                modalMode: null,
+                isImg: false,
+                isMov: false,
+                imageIndex: 0,
+                moment: moment
+            }
+        },
+        methods: {
+            setModalMode: function(aMode){
+                this.isImg = false;
+                this.isMov = false;
+                switch (aMode){
+                    case 'image':
+                        this.isImg = true;
+                        this.modalMode = 'image';
+                        break;
+                    case 'video':
+                        this.isMov = true;
+                        this.modalMode='video';
+                        break;
+                    case 'none':
+                        this.modalMode='stepOutput';
+                        break;
+                    default:
+                        // but that's impossible!
+                        break;
+                }
+            },
+            showJsonModal: async function(){
+
+                let image_step = await VisionSdk.GetImageStepByIdAsync(this.imageStepId, this.visionDbName);
+                
+                image_step.media_links_signed = await VisionSdk.GetMediaLinksSignedAsync(image_step.images);
+                
+                if(image_step.images == null){
+                    // if we don't have any images, we can only show the image_step json data
+                    this.setModalMode('none');
+                } else if(image_step.images.length == 0){
+                    // if we don't have any images, we can only show the image_step json data
+                    this.setModalMode('none');
+                } else {
+                    if(this.imageName){
+                        // use the image name provided
+                        this.imageIndex = image_step.images.findIndex(x=>x.endsWith(this.imageName));
+                    }
+                    this.setModalMode(image_step['media_link_types'][this.imageIndex]);
+                }
+
+                if(this.showAnnotations){
+                    image_step.mediaWithAnnotationConfig = {
+                        databaseName: this.visionDbName,
+                        hostName: image_step.host_name,
+                        stepName: image_step.step_name,
+                        imageName: this.imageName,
+                        imageStepId: image_step.image_step_id
+                    }
+                }
+
+                this.imageStepData = image_step;
+                
+                $('#jsonModal').show();
+            },  
+            hideJsonModal: function(){
+                $('#jsonModal').hide();
+            }
+        }
+    }
+</script>

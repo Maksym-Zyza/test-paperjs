@@ -1,0 +1,881 @@
+<?php
+
+use Joomla\CMS\HTML\HTMLHelper;
+
+$primary_domain = 'https://' . $_SERVER['HTTP_HOST'];
+
+HTMLHelper::_('script', "$primary_domain/media/com_thinkiq/js/dist/tiq.core.js", array('version' =>
+'auto', 'relative' => false, 'detectDebug' => false)); //
+HTMLHelper::_('script',
+"$primary_domain/media/com_thinkiq/js/dist/tiq.tiqGraphQL.js", array('version'
+=> 'auto', 'relative' => false, 'detectDebug' => false)); //
+HTMLHelper::_('script', 'media/com_thinkiq/js/dist/tiq.tiqGraphQL.js',
+array('version' => 'auto', 'relative' => false)); HTMLHelper::_('script',
+"$primary_domain/media/com_thinkiq/js/dist/tiq.components.js", array('version'
+=> 'auto', 'relative' => false, 'detectDebug' => false));
+HTMLHelper::_('script',
+"$primary_domain/media/com_thinkiq/js/dist/tiq.charts.js", array('version' =>
+'auto', 'relative' => false, 'detectDebug' => false)); require_once
+'thinkiq_context.php'; $context = new Context(); use
+TiqUtilities\Model\GenericObject; use TiqUtilities\Model\Node; $node = new
+Node($context->std_inputs->node_id); $vision_acquisition =
+$node->findObjectByType($context->std_inputs->node_id, 'Vision Acquisition',
+true)[0]; $vision_acquisition->getAttributes(); if
+($vision_acquisition->use_foreign_data_wrapper->bool_value) { $fdw =
+"fdw_vision_" . $vision_acquisition->vision_database_name->string_value; } else
+{ $fdw = $vision_acquisition->vision_database_name->string_value; }
+$node->getParent(['getParent']); //dd($node->parent->parent->id); $camera = new
+Node($node->parent->id); $camera->getAttributes(); $gatewayId =
+$camera->attributes['gateway_id']->string_value; // $aHost = new
+GenericObject($context->std_inputs->node_id); // $aHost->getAttributes(); //
+$aHost->getType(); // $aHost->type->getInstances(); //
+foreach($aHost->type->instances as $aInstance){ // $aInstance->getAttributes();
+// } // using aTinyHost to keep the footprint in the DOM smaller //
+https://github.com/ThinkIQ-Labs/SMIP-Advanced-Topics/blob/main/Part%20I%20-%20Browser%20Scripts/Topic%2002%20-%20Intro%20to%20Model%20Automation%20(Types%2C%20Instances%2C%20Attributes)/01%20Browser%20Script%20on%20a%20Type%20with%20Instance%20Switching.php
+$aHost = new GenericObject($context->std_inputs->node_id); $aTinyHost = new
+stdClass(); $aTinyHost->id = $aHost->id; $aTinyHost->display_name =
+$aHost->display_name; $aTinyHost->type = new stdClass();
+$aTinyHost->type->instances = []; $aHost->getType();
+$aHost->type->getInstances(); foreach($aHost->type->instances as $aInstance){
+$aInstance->getAttributes(lazy_load:true); $aTinyInstance = new stdClass();
+$aTinyInstance->id = $aInstance->id; $aTinyInstance->display_name =
+$aInstance->display_name; $aTinyInstance->attributes=[];
+foreach($aInstance->attributes as $aAttribute){ $aTinyAttribute = new
+stdClass(); $aTinyAttribute->id = $aAttribute->id; $aTinyAttribute->display_name
+= $aAttribute->display_name; $aTinyAttribute->string_value =
+$aAttribute->string_value; $aTinyAttribute->object_value =
+json_decode($aAttribute->object_value);
+$aTinyInstance->attributes[$aAttribute->display_name] = $aTinyAttribute; } //
+gateway id $aInstance->getParent(); $aInstance->parent->getParent();
+$aInstance->parent->parent->getAttributes(lazy_load:true); $aTinyAttribute = new
+stdClass(); $aTinyAttribute->display_name = 'Gateway ID';
+$aTinyAttribute->string_value =
+$aInstance->parent->parent->attributes['gateway_id']->string_value;
+$aTinyInstance->attributes['gateway_id'] = $aTinyAttribute;
+$aTinyInstance->fancy_name = $aInstance->parent->parent->display_name . '->' .
+$aInstance->parent->display_name . '->' . $aInstance->display_name;
+$aTinyHost->type->instances[$aInstance->id] = $aTinyInstance; } use
+TiqUtilities\Model\Script;
+Script::includeScript('mv_tiny_tools_library.vision_js_sdk'); use
+Joomla\CMS\Factory; $user = Factory::getUser(); ?>
+
+<!-- fabric.js -->
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"
+  integrity="sha512-CeIsOAsgJnmevfCi2C7Zsyy6bQKi43utIjdA87Q0ZY84oDqnI0uwfM9+bKiIkI75lUeI00WG/+uJzOmuHlesMA=="
+  crossorigin="anonymous"
+  referrerpolicy="no-referrer"
+></script>
+
+<div id="app">
+  <wait-indicator :display="showWaitIndicator" mode="Regular"></wait-indicator>
+  <div class="row">
+    <div class="col-12">
+      <h1 class="pb-2 pt-2" style="font-size: 2.5rem; color: #126181">
+        {{pageTitle}}: {{ActiveInstance ? ActiveInstance.display_name : ''}}
+        <a
+          v-if="true"
+          class="float-end btn btn-sm btn-link mt-2"
+          style="font-size: 1rem; color: #126181"
+          v-bind:href="`/index.php?option=com_modeleditor&view=script&id=${context.std_inputs.script_id}`"
+          target="_blank"
+          >source</a
+        >
+      </h1>
+      <div>
+        <button
+          class="btn btn-sm me-3"
+          v-bind:class="!aInstance.isActive ? 'btn-light' : 'btn-secondary'"
+          v-for="aInstance in host.type.instances"
+          @click="activateInstance(aInstance)"
+        >
+          {{aInstance.fancy_name}}
+        </button>
+      </div>
+      <hr style="border-color: #126181; border-width: medium" />
+    </div>
+  </div>
+
+  <duration-picker
+    ref="datePicker"
+    :key="durationPickerKey"
+    :show-player-controls="true"
+    :show-zoom-controls="true"
+    :show-pan-controls="true"
+    :time-periods="tp"
+    :active-time-period="activeTimePeriod"
+    :show-time-periods="true"
+    :timezones="tz"
+    :active-timezone="1"
+    :show-timezones="true"
+    :show-end="true"
+    :show-start-time="true"
+    :show-end-time="true"
+    :zoom-in-factor="0.5"
+    :zoom-out-factor="0.5"
+    :interval-delay="5"
+    :date-diff-in-min="60"
+    mode="dateTime"
+    :start-date="startDate.format()"
+    :end-date="endDate.format()"
+    @on-date-change="duration_picker_onDateChange"
+    @on-zoom="duration_picker_onZoom"
+  ></duration-picker>
+
+  <button class="btn btn-light btn-sm" @click="copyTimePeriod">
+    Copy Time Period
+  </button>
+  <button class="btn btn-light btn-sm" @click="pasteTimePeriod">
+    Paste Time Period
+  </button>
+
+  <br />
+  <hr />
+
+  <div class="row">
+    <div class="col-6">
+      <br />
+      <div style="overflow: auto; max-height: 750px">
+        <table class="table table-sm table-hover">
+          <thead>
+            <tr>
+              <th scope="col">json step #</th>
+              <th scope="col">image step #</th>
+              <th scope="col">start</th>
+              <th scope="col">R</th>
+              <th scope="col">G</th>
+              <th scope="col">B</th>
+              <th scope="col">hue</th>
+              <th scope="col">Detection</th>
+              <th scope="col">Mapping</th>
+              <th scope="col">Step /w Media</th>
+              <th scope="col">QA Flag</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              :id="`EventTableRecord_${aEvent.startTime.valueOf()}`"
+              :style="{borderTop: i==0 || aEvent.startTime.format('mm') != events[i-1].startTime.format('mm') ? 'solid 2px' : '',  backgroundColor: aEvent.isActive ? 'lightgray' : ''}"
+              v-for="(aEvent, i) in events"
+              @click="ToggleActiveEvent(aEvent)"
+            >
+              <th scope="row">{{aEvent.json_image_step_id}}</th>
+              <th scope="row">{{aEvent.image_image_step_id}}</th>
+              <td>
+                {{aEvent.startTime.format('HH:mm:ss.SS')}}<i
+                  v-if="aEvent.hasFocus"
+                  class="ms-2 fa fa-film"
+                  :style="`color:${aEvent.state};`"
+                ></i>
+              </td>
+              <th scope="row">{{aEvent.color[0]}}</th>
+              <th scope="row">{{aEvent.color[1]}}</th>
+              <th scope="row">{{aEvent.color[2]}}</th>
+              <th scope="row">{{aEvent.hue}}</th>
+              <td>
+                <i
+                  class="fa fa-circle fa-2xl"
+                  :style="{color: `rgb(${aEvent.color[0]} ${aEvent.color[1]} ${aEvent.color[2]})`}"
+                />
+              </td>
+              <td>
+                <i class="fa fa-circle fa-2xl" :style="{color: aEvent.state}" />
+              </td>
+              <td>
+                {{aEvent.hasMedia ? imageImageSteps.find(x=>x.image_step_id ==
+                aEvent.image_image_step_id).step_name : ''}}
+              </td>
+              <td>
+                <i
+                  :class="jsonImageSteps.find(x=>x.image_step_id==aEvent.json_image_step_id).annotations.filter(x=>!x.is_accurate).length>0 ? 'fa-2xl fa-thumbs-down fa-solid' : ''"
+                  style="cursor: pointer"
+                ></i>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="col-6">
+      <div style="height: 450px">
+        <video
+          v-if="mediaLinkType === 'video'"
+          height="450"
+          width="620"
+          :id="`video-${imageId}`"
+          controls
+        >
+          <source :src="mediaSource" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <image
+          v-else-if="mediaLinkType !== 'video'"
+          height="720"
+          width="1280"
+          :id="imageId"
+          muted=""
+          :style="false ? '' : 'display: none'"
+          class="canvas-img"
+          @load="FlagImageReady"
+        >
+          <source />
+        </image>
+
+        <canvas v-bind:id="canvasId" resize width="800" height="400"> </canvas>
+
+        <label
+          class="my-3"
+          style="
+            position: relative;
+            transform: translate(10px, 0px);
+            color: coral;
+            z-index: 5;
+            width: 350px;
+          "
+          v-if="activeJsonImageStep.annotations"
+        >
+          <i
+            class="mx-2 fa-2xl fa-thumbs-down"
+            :class="activeJsonImageStep.annotations.filter(x=>!x.is_accurate).length>0 ? 'fa-solid' : 'fa-light'"
+            style="cursor: pointer"
+            @click="TogglePopAnnotationAsync(activeJsonImageStep, 'isAccurate')"
+          ></i>
+          <i class="mx-2 fa-2xl fa-light fa-broom"></i>
+          <i class="mx-2 fa-2xl fa-light fa-cloud-sun"></i>
+        </label>
+      </div>
+
+      <div class="row">
+        <hr />
+        <div class="col-6">
+          <div v-if="activeJsonImageStep.collection_time">
+            Collection Time: {{activeJsonImageStep.collection_time}}
+            <br />
+            <span v-if="activeColor!=null"
+              >Current Event Color: [{{activeColorDetection[0]}},
+              {{activeColorDetection[1]}}, {{activeColorDetection[2]}}] --->
+              {{activeColor}}</span
+            >
+            <br />
+            <span v-if="activeRegion.length>0"
+              >Region: {{JSON.stringify(activeRegion)}}</span
+            >
+            <br />
+            <a target="_blank" :href="mediaSource">
+              {{ mediaLinkType === 'video' ? "Video Link" : "Image Link" }}
+            </a>
+          </div>
+        </div>
+        <div class="col-6">
+          Vision DB: {{activeDatabaseName}}<br />
+          Gateway ID: {{activeGatewayId}}<br />
+          Host Name: {{activeHostName}}<br />
+          Step Name: {{activeJsonStepName}}<br />
+          Image Step Name: {{activeImageStepName}}<br />
+        </div>
+      </div>
+
+      <hr />
+
+      <line-chart
+        title=""
+        :height="300"
+        :start-date="startDate.format()"
+        :end-date="endDate.format()"
+        :static-data-object="chartData"
+      ></line-chart>
+    </div>
+  </div>
+</div>
+
+<script>
+  var WinDoc = window.document;
+
+  // collection of timezones for the duration picker
+  var appTimeZones = [
+      {
+          "id":"1",
+          "name":"US Eastern",
+          "value":"America/New_York"
+      },
+      {
+          "id":"2",
+          "name":"US Central",
+          "value":"America/Chicago"
+      },
+      {
+          "id":"3",
+          "name":"US Mountain",
+          "value":"America/Denver"
+      },
+      {
+          "id":"4",
+          "name":"US Pacific",
+          "value":"America/Los_Angeles"
+      },
+      {
+          "id":"5",
+          "name":"ThinkIQ Asia",
+          "value":"Asia/Kolkata"
+      },
+      {
+          "id":"6",
+          "name":"Europe Amsterdam",
+          "value":"Europe/Amsterdam"
+      },
+      {
+          "id":"7",
+          "name":"Europe Berlin",
+          "value":"Europe/Berlin"
+      },
+      {
+          "id":"8",
+          "name":"UTC",
+          "value":"utc"
+      }
+  ];
+
+  // collection of time periods for the duration picker
+  var appTimePeriods = [
+      {"id":"1","name":"Last 1 minutes","duration":"PT1M","end_date":"now"},
+      {"id":"2","name":"Last 5 minutes","duration":"PT5M","end_date":"now"},
+      {"id":"3","name":"Last 10 minutes","duration":"PT10M","end_date":"now"},
+      {"id":"4","name":"Last 30 minutes","duration":"PT30M","end_date":"now"},
+      {"id":"5","name":"Last 1 hour","duration":"PT1H","end_date":"now"},
+      {"id":"6","name":"Last 2 hour","duration":"PT2H","end_date":"now"},
+      {"id":"7","name":"Last 6 hour","duration":"PT6H","end_date":"now"},
+      {"id":"8","name":"Last 12 hour","duration":"PT12H","end_date":"now"},
+  ];
+
+  // we need a clipboard so we can copy / paste
+  var clipboard = navigator.clipboard;
+
+  // this is the coolest delay function ever
+  // use like this to wait 100ms: await delay(100);
+  // https://levelup.gitconnected.com/how-to-turn-settimeout-and-setinterval-into-promises-6a4977f0ace3
+  function delay(time) {
+      return new Promise(resolve => setTimeout(resolve, time));
+  }
+
+  var app = createApp({
+      // el: "#app",
+      data() {
+          return {
+              moment: moment,
+              showWaitIndicator: false,
+              // stuff for duration picker
+              tz: JSON.stringify(appTimeZones),
+              tp: JSON.stringify(appTimePeriods),
+              startDate: core.moment().tz(appTimeZones[0].value).add(-30,'m'),
+              endDate: core.moment().tz(appTimeZones[0].value),
+              activeTimePeriod: 4,
+              durationPickerKey: 0,
+
+
+              pageTitle: "Color States Detection",
+              context:<?php echo json_encode($context)?>,
+              activeUserId: <?php echo json_encode($user->id)?>,
+              host: <?php echo json_encode($aTinyHost)?>,
+
+              activeDatabaseName: '<?php echo $fdw; ?>',
+              activeGatewayId: '',
+              activeHostName: '',
+              activeJsonStepName: '',
+              activeImageStepName: '',
+              activeMediaLink: '',
+              activeRegion: [],
+              activeColorDetection: [0,0,0],
+              activeColor: '',
+
+              jsonImageSteps: [],
+              activeJsonImageStep: {},
+              annotations: [],
+
+              imageImageSteps: [],
+              activeImageImageStep: {},
+
+              events: [],
+              defaultColors: {},
+
+              canvasId: crypto.randomUUID(),
+              canvas: null,
+              imageId: crypto.randomUUID(),
+              imageReady: false,
+
+              image: null,
+              mediaLinkType: '',
+              mediaSource: null,
+              indicatorRawShape: null,
+              indicatorShape: null,
+              targetRegion: null,
+              keepRendering: false,
+
+              chartData: [
+                  {
+                          "name": "R",
+                          "interpolation_method": "none",
+                          "data_type": "int",
+                          "values": [],
+                          "timestamps": [],
+                  },
+                  {
+                          "name": "G",
+                          "interpolation_method": "none",
+                          "data_type": "int",
+                          "values": [],
+                          "timestamps": [],
+                  },
+                  {
+                          "name": "B",
+                          "interpolation_method": "none",
+                          "data_type": "int",
+                          "values": [],
+                          "timestamps": [],
+                  },
+                  {
+                          "name": "Hue",
+                          "interpolation_method": "none",
+                          "data_type": "float",
+                          "values": [],
+                          "timestamps": [],
+                  }
+              ]
+
+          }
+      },
+      mounted: async function () {
+          WinDoc.title = this.pageTitle;
+
+          this.activateInstance(Object.values(this.host.type.instances).find(x=>x.id==this.host.id), true);
+
+          window.addEventListener('keyup', this.KeyCaptureAsync);
+
+          // this.chartData[0].values.push("1");
+          // this.chartData[0].timestamps.push(this.startDate.format());
+          // this.chartData[0].values.push("2");
+          // this.chartData[0].timestamps.push(this.endDate.format());
+
+      },
+      computed: {
+          activeTimeZone: function(){
+              return this.$refs.datePicker.timezone=='0' ? null : appTimeZones.find(x=>x.id==this.$refs.datePicker.timezone);
+          },
+          ActiveInstance: function(){
+              return Object.values(this.host.type.instances).find(x=>x.isActive);
+          }
+      },
+      methods: {
+          copyTimePeriod: function(){
+              clipboard.writeText(`{
+                  "start":"${this.startDate.toISOString()}",
+                  "end":"${this.endDate.toISOString()}",
+                  "tz":"${this.activeTimeZone.value}"
+              }`);
+          },
+          pasteTimePeriod: async function(){
+              let data = JSON.parse(await clipboard.readText());
+              let aTimeZone = appTimeZones.find(x=>x.value == data.tz);
+              this.$refs.datePicker.timezone=aTimeZone.id;
+              await delay(100);
+              this.startDate=moment(data.start).tz(aTimeZone.value);
+              await delay(100);
+              this.endDate=moment(data.end).tz(aTimeZone.value);
+          },
+          TogglePopAnnotationAsync: async function(aImageStep, aVerb){
+              switch(aVerb){
+                  case 'isAccurate':
+                      if(aImageStep.annotations.filter(x=>x.is_accurate==false).length==1){
+                          // remove the annotation
+                          let aAnnotationIndex = aImageStep.annotations.findIndex(x=>x.is_accurate==false);
+                          let aAnnotation = aImageStep.annotations[aAnnotationIndex];
+                          let aResult = await VisionSdk.DeleteAnnotationByIdAsync(aAnnotation.image_step_annotation_id, this.activeDatabaseName);
+
+                          aImageStep.annotations.splice(aAnnotationIndex, 1);
+
+                          let allAnnotationsIndex = this.annotations.findIndex(x=>x.image_step_annotation_id == aAnnotation.image_step_annotation_id);
+                          this.annotations.splice(allAnnotationsIndex, 1);
+
+
+                      } else {
+                          // add an annotation
+                          let aQcResult = {
+                              image_step_id: aImageStep.image_step_id
+                          };
+                          if(aImageStep.step_output.active_learning){
+                              aQcResult.active_learning = aImageStep.step_output.active_learning;
+                          }
+                          let aComment = "Annotation by QA Color Detection using Images.";
+                          let createAnnotationByImageStepId = await VisionSdk.CreateAnnotationByImageStepIdAsync(
+                              aImageStep.image_step_id,
+                              this.activeUserId,
+                              aComment,
+                              false,
+                              JSON.stringify(aQcResult),
+                              this.activeDatabaseName
+                          );
+                          this.annotations.push(createAnnotationByImageStepId);
+                          aImageStep.annotations.push(createAnnotationByImageStepId);
+                      }
+                      break;
+                  default:
+
+                      break;
+              }
+          },
+          FlagImageReady: function(){
+              this.imageReady = true;
+          },
+          KeyCaptureAsync: async function(a){
+              console.log(a);
+              if(a.key=='d'){
+                  // go to previous event
+                  let activeEventIndex = this.events.findIndex(x=>x.isActive);
+                  await this.ToggleActiveEvent(this.events[activeEventIndex+1]);
+                  this.centerSelectionOfTable(this.events[activeEventIndex+1].startTime.valueOf());
+              }
+              if(a.key=='a'){
+                  // go to next event
+                  let activeEventIndex = this.events.findIndex(x=>x.isActive);
+                  await this.ToggleActiveEvent(this.events[activeEventIndex-1]);
+                  this.centerSelectionOfTable(this.events[activeEventIndex-1].startTime.valueOf());
+              }
+              console.log(a);
+              if(a.key=='w'){
+                  // go to end of next minute
+                  let activeEventIndex = this.events.findIndex(x=>x.isActive);
+                  let activeEvent = this.events[activeEventIndex];
+                  let nextMinuteEvents = this.events.filter(x=>x.startTime.format('HH:mm')!=activeEvent.startTime.format('HH:mm') && x.startTime.valueOf() > activeEvent.startTime.valueOf());
+                  await this.ToggleActiveEvent(nextMinuteEvents[nextMinuteEvents.length-1]);
+                  this.centerSelectionOfTable(nextMinuteEvents[nextMinuteEvents.length-1].startTime.valueOf());
+              }
+              if(a.key=='s'){
+                  // go to start of prev minute
+                  let activeEventIndex = this.events.findIndex(x=>x.isActive);
+                  let activeEvent = this.events[activeEventIndex];
+                  let prevMinuteEvents = this.events.filter(x=>x.startTime.format('HH:mm')!=activeEvent.startTime.format('HH:mm') && x.startTime.valueOf() < activeEvent.startTime.valueOf());
+                  await this.ToggleActiveEvent(prevMinuteEvents[0]);
+                  this.centerSelectionOfTable(prevMinuteEvents[0].startTime.valueOf());
+              }
+
+          },
+          centerSelectionOfTable: function(i){
+              // move vertical selection to selected event
+              const element = document.getElementById(`EventTableRecord_${i}`);
+              element.scrollIntoView({behavior: "smooth", block: "center", inline: "nearest"});
+          },
+          activateInstance:async function(aInstance, isStartUp = false){
+
+              Object.values(this.host.type.instances).forEach(x=>x.isActive = false);
+              Object.values(this.host.type.instances).find(x=>x.id==aInstance.id).isActive = true;
+              const attributeValues = Object.values(this.ActiveInstance.attributes);
+              const nodeName = attributeValues.find(x => x.display_name == 'Node Name');
+              const stepName = attributeValues.find(x => x.display_name == 'Step Name');
+              const gatewayId = attributeValues.find(x => x.display_name=='Gateway ID');
+              // const dbVisionName = Object.values(this.ActiveInstance.attributes).find(x=>x.display_name=='Vision DB Name').string_value;
+
+              this.activeHostName = nodeName.string_value;
+              this.activeJsonStepName = stepName.string_value;
+              this.activeImageStepName = stepName.string_value;
+              this.activeDatabaseName = '<?php echo $fdw; ?>';
+              this.activeGatewayId = '<?php echo $gatewayId ?>'
+
+              if(!isStartUp) await this.fetchStepOutputdata();
+          },
+          duration_picker_onZoom: async function(aZoomInBool, start_date, end_date){
+              await this.duration_picker_onDateChange(start_date, end_date);
+          },
+          duration_picker_onDateChange: async function (start_date, end_date) {
+              let sd = core.moment(start_date);
+              this.startDate = this.activeTimeZone==null ? sd : sd.tz(this.activeTimeZone.value);
+              let ed = core.moment(end_date)
+              this.endDate = this.activeTimeZone==null ? ed : ed.tz(this.activeTimeZone.value);
+
+              await this.fetchStepOutputdata();
+          },
+          fetchStepOutputdata: async function(){
+              // this.showWaitIndicator = true;
+
+              this.events = [];
+
+              await delay(100);
+
+              let jsonImageSteps = await VisionSdk.GetImageStepsByTimeRangeAsync(this.activeGatewayId, this.activeJsonStepName, this.startDate.format(), this.endDate.format(), true, this.activeDatabaseName);
+              this.annotations = await VisionSdk.GetAnnotationsByTimeRangeAsync(this.activeGatewayId, this.activeJsonStepName, this.startDate.format(), this.endDate.format(), this.activeDatabaseName);
+              jsonImageSteps.forEach(aImageStep=>{
+                  aImageStep.collection_time_epoch = moment(aImageStep.collection_time).valueOf();
+                  aImageStep.isActive = false;
+                  aImageStep.annotations = this.annotations.filter(x=>x.collection_time==aImageStep.collection_time && x.step_name==aImageStep.step_name)
+              });
+
+              this.jsonImageSteps = jsonImageSteps;
+              let imageImageSteps = await VisionSdk.GetImageStepsByTimeRangeAsync(this.activeGatewayId, this.activeImageStepName, this.startDate.format(), this.endDate.format(), true, this.activeDatabaseName);
+              let heartbeatImageSteps = await VisionSdk.GetImageStepsByTimeRangeAsync(this.activeGatewayId, 'heartbeat', this.startDate.format(), this.endDate.format(), true, this.activeDatabaseName);
+              imageImageSteps = imageImageSteps.concat(heartbeatImageSteps);
+
+              imageImageSteps.forEach(x=>{
+                  x.collection_time_epoch = moment(x.collection_time).valueOf();
+                  x.isActive = false;
+              });
+
+              const imageCollection = imageImageSteps
+                  .filter(d => d.images.length > 0 && typeof d.images[0] !== 'undefined')
+                  .map(d => d.images[0]);
+
+              // const mediaLinks =
+              let recent_media_links_signed = await VisionSdk.GetMediaLinksSignedAsync(imageCollection);
+              recent_media_links_signed.forEach((x,i)=>{
+                  imageImageSteps[i].media_links_signed = [x];
+              });
+
+              this.imageImageSteps = imageImageSteps;
+
+              let events = [];
+              for(aImageStep of jsonImageSteps){
+                  if(aImageStep.step_output.events){
+                      for(aEvent of aImageStep.step_output.events){
+                          if(!this.defaultColors[aEvent.color_name]){
+                              this.defaultColors[aEvent.color_name] = {
+                                  color: aEvent.color_name,
+                                  cs_label: aEvent.color_name
+                              }
+                          }
+                          let startTime = new moment(aEvent.start_time);
+                          let startTimeEpoch = startTime.valueOf();
+                          let hasMedia = this.imageImageSteps.filter(x=>x.collection_time_epoch==startTimeEpoch).length>0
+                          events.push({
+                              isActive: false,
+                              hasFocus: false,
+                              color: aEvent.color,
+                              hue: rgbToHue(aEvent.color[0], aEvent.color[1], aEvent.color[2]),
+                              json_image_step_id: aImageStep.image_step_id,
+                              hasMedia: hasMedia,
+                              image_image_step_id: hasMedia ? this.imageImageSteps.find(x=>x.collection_time_epoch==startTimeEpoch).image_step_id :'',
+                              startTime: startTime,
+                              endTime: new moment(aEvent.end_time),
+                              images: [],
+                              d_images: [],
+                              state: aEvent.color_name,
+                              missingMeasures: []
+                          });
+                      }
+                  }
+              }
+              this.events = events.sort((a,b)=>a.startTime<b.startTime ? 1 : -1);
+
+
+              let chartData = [
+                  {
+                          "name": "R",
+                          "interpolation_method": "none",
+                          "data_type": "int",
+                          "values": [],
+                          "timestamps": [],
+                  },
+                  {
+                          "name": "G",
+                          "interpolation_method": "none",
+                          "data_type": "int",
+                          "values": [],
+                          "timestamps": [],
+                  },
+                  {
+                          "name": "B",
+                          "interpolation_method": "none",
+                          "data_type": "int",
+                          "values": [],
+                          "timestamps": [],
+                  },
+                  {
+                          "name": "Hue",
+                          "interpolation_method": "none",
+                          "data_type": "float",
+                          "values": [],
+                          "timestamps": [],
+                  }
+              ];
+
+              // for(let i=0; i<=2; i++){
+              //     chartData[i].values = this.events.map(x=>x.color[i]);
+              //     chartData[i].timestamps = this.events.map(x=>x.startTime.format());
+              // }
+              chartData[3].values = this.events.map(x=>rgbToHue(x.color[0], x.color[1], x.color[2]));
+              chartData[3].timestamps = this.events.map(x=>x.startTime.format());
+
+              this.chartData = chartData;
+
+              // this.showWaitIndicator = false;
+
+          },
+
+          ToggleActiveEvent: function(aEvent){
+
+              this.events.filter(x=>x.isActive).forEach(x=> {
+                  x.isActive=false;
+                  x.hasFocus=false;
+              });
+              this.jsonImageSteps.filter(x=>x.isActive).forEach(x=>x.isActive=false);
+              this.imageImageSteps.filter(x=>x.isActive).forEach(x=>x.isActive=false);
+
+              aEvent.isActive = true;
+
+              this.activeJsonImageStep = this.jsonImageSteps.find(x=>x.image_step_id==aEvent.json_image_step_id);
+              this.activeJsonImageStep.isActive = true;
+              this.activeRegion = this.activeJsonImageStep.step_output.views ? this.activeJsonImageStep.step_output.views.region : '';
+              this.activeColorDetection = this.activeJsonImageStep.step_output.events[0].color;
+
+              if(aEvent.hasMedia){
+                  this.activeImageImageStep = this.imageImageSteps.find(x=> x.image_step_id == aEvent.image_image_step_id);
+                  this.activeImageImageStep.isActive = true;
+              } else {
+                  this.activeImageImageStep = {};
+              }
+
+              this.ProcessCanvasAsync(aEvent);
+          },
+
+          ProcessCanvasAsync: async function(aEvent){
+
+              this.keepRendering = false;
+
+              await delay(10);
+
+              var canvasEl = null;
+              while(canvasEl == null){
+                  canvasEl = document.getElementById(this.canvasId);
+                  await delay(10);
+              }
+
+              await delay(10);
+
+              if(this.canvas==null){
+                  this.canvas = new fabric.Canvas(this.canvasId);
+                  await delay(10);
+              } else {
+                  this.canvas.clear();
+              }
+
+              this.mediaLinkType = null;
+              let mediaElement = null;
+
+              while (mediaElement == null){
+
+                  this.imageReady = false;
+                  this.activeMediaLink = '';
+                  this.mediaSource = null;
+
+                  if(aEvent.hasMedia){
+                      if(VisionSdk.MediaLinkHasExpired(this.activeImageImageStep.media_links_signed[0])){
+                          let recent_media_links_signed = await VisionSdk.GetMediaLinksSignedAsync(this.activeImageImageStep.images);
+                          recent_media_links_signed.forEach((aUrl, i) => {
+                              this.activeImageImageStep.media_links_signed[i] = recent_media_links_signed[i];
+                          });
+                      }
+
+                      const { media_link_types, media_links_signed } = this.activeImageImageStep;
+                      console.log("activeImageImageStep>", this.activeImageImageStep)
+
+                      this.mediaLinkType = media_link_types[0];
+                      console.log("mediaLinkType>", this.mediaLinkType)
+                      this.activeMediaLink = media_links_signed[0];
+
+                      if (this.mediaLinkType === 'video') {
+                          // @TODO: We need to rework this whole logic to use declarative paradign of programming
+                          // also it needs to use d3 to draw the bounding boxes not fabric js.
+
+                          // mediaElement = document.getElementById(`video-${this.imageId}`);
+                          // mediaElement.setAttribute("src", this.activeMediaLink);
+                          this.mediaSource = this.activeMediaLink;
+                          return;
+                      } else {
+                          mediaElement = document.getElementById(this.imageId);
+                          mediaElement.setAttribute("src", this.activeMediaLink);
+                          this.mediaSource = this.activeMediaLink;
+                      }
+                  }
+              }
+
+              while(!this.imageReady){
+                  await delay(10);
+              }
+
+              const width = this.mediaLinkType === 'video' ? 620 : 1280;
+              const height = this.mediaLinkType === 'video' ? 450 : 720;
+
+
+              this.image = new fabric.Image(mediaElement, {
+                  left: 0,
+                  top: 0,
+                  width,
+                  height,
+                  // width: 841,
+                  // height: 513,
+                  angle: 0,
+                  originX: 'left',
+                  originY: 'top',
+                  objectCaching: false
+              });
+
+              // this.image.scale(0.6);
+              this.image.scaleToHeight(400, false);
+
+              // this.image._element.crossOrigin = 'anonymous';
+              this.canvas.add(this.image);
+
+              aEvent.hasFocus = true;
+
+
+              this.indicatorRawShape = new fabric.Circle({
+                  radius: 20,
+                  fill: `rgb(${aEvent.color[0]} ${aEvent.color[1]} ${aEvent.color[2]})`,
+                  left: 240,
+                  top: 350
+              });
+              this.canvas.add(this.indicatorRawShape);
+
+
+              this.indicatorShape = new fabric.Circle({
+                  radius: 20, fill: aEvent.state, left: 280, top: 350
+              });
+              this.canvas.add(this.indicatorShape);
+
+              app.activeColor = aEvent.state;
+
+              this.targetRegion = new fabric.Rect({
+                  left: this.activeRegion[0] * 400 / 720,
+                  top: this.activeRegion[1] * 400 / 720,
+                  fill: 'rgba(0,0,0,0)',
+                  strokeWidth: 2,
+                  stroke: 'red',
+                  width: this.activeRegion[2] * 400 / 720,
+                  height: this.activeRegion[3] * 400 / 720
+              });
+
+              this.canvas.add(this.targetRegion);
+
+              this.keepRendering = true;
+              fabric.util.requestAnimFrame(function render() {
+                  app.canvas.renderAll();
+
+                  // var dataURL = canvas.toDataURL("image/jpeg");
+                  // console.log(dataURL);
+
+                  if(app.keepRendering){
+                      fabric.util.requestAnimFrame(render);
+                  }
+              });
+
+          }
+
+      },
+  })
+  .mount('#app');
+
+  // thank you logrocket.com
+  // https://blog.logrocket.com/how-to-manipulate-css-colors-with-javascript-fb547113a1b8/
+  const rgbToHue = (r,g,b) => Math.round(
+      Math.atan2(
+          Math.sqrt(3) * (g - b),
+          2 * r - g - b,
+      ) * 180 / Math.PI
+  );
+</script>

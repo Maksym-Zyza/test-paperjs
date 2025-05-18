@@ -1,0 +1,527 @@
+<?php
+
+use Joomla\CMS\HTML\HTMLHelper;
+
+$primary_domain = 'https://' . $_SERVER['HTTP_HOST'];
+
+HTMLHelper::_('script', "$primary_domain/media/com_thinkiq/js/dist/tiq.core.js", array('version' =>
+'auto', 'relative' => false, 'detectDebug' => false)); //
+HTMLHelper::_('script',
+"$primary_domain/media/com_thinkiq/js/dist/tiq.tiqGraphQL.js", array('version'
+=> 'auto', 'relative' => false, 'detectDebug' => false)); //
+HTMLHelper::_('script', 'media/com_thinkiq/js/dist/tiq.tiqGraphQL.js',
+array('version' => 'auto', 'relative' => false)); HTMLHelper::_('script',
+"$primary_domain/media/com_thinkiq/js/dist/tiq.components.js", array('version'
+=> 'auto', 'relative' => false, 'detectDebug' => false));
+HTMLHelper::_('script',
+"$primary_domain/media/com_thinkiq/js/dist/tiq.charts.js", array('version' =>
+'auto', 'relative' => false, 'detectDebug' => false)); require_once
+'thinkiq_context.php'; $context = new Context(); use
+TiqUtilities\Model\GenericObject; use TiqUtilities\Model\Node; $node = new
+Node($context->std_inputs->node_id); $vision_acquisition =
+$node->findObjectByType($context->std_inputs->node_id, 'Vision Acquisition',
+true)[0]; $vision_acquisition->getAttributes(); if
+($vision_acquisition->use_foreign_data_wrapper->bool_value) { $fdw =
+"fdw_vision_" . $vision_acquisition->vision_database_name->string_value; } else
+{ $fdw = $vision_acquisition->vision_database_name->string_value; }
+$node->getParent(['getParent']); //dd($node->parent->parent->id); $camera = new
+Node($node->parent->id); $camera->getAttributes(); $gatewayId =
+$camera->attributes['gateway_id']->string_value; var_dump($camera); // $aHost =
+new GenericObject($context->std_inputs->node_id); // $aHost->getAttributes(); //
+$aHost->getType(); // $aHost->type->getInstances(); //
+foreach($aHost->type->instances as $aInstance){ // $aInstance->getAttributes();
+// } // using aTinyHost to keep the footprint in the DOM smaller //
+https://github.com/ThinkIQ-Labs/SMIP-Advanced-Topics/blob/main/Part%20I%20-%20Browser%20Scripts/Topic%2002%20-%20Intro%20to%20Model%20Automation%20(Types%2C%20Instances%2C%20Attributes)/01%20Browser%20Script%20on%20a%20Type%20with%20Instance%20Switching.php
+// $aHost = new GenericObject($context->std_inputs->node_id); $aHost = new
+Node($node->parent->id); $aTinyHost = new stdClass(); $aTinyHost->id =
+$aHost->id; $aTinyHost->display_name = $aHost->display_name; $aTinyHost->type =
+new stdClass(); $aTinyHost->type->instances = []; $aHost->getType();
+$aHost->type->getInstances(); foreach($aHost->type->instances as $aInstance){
+$aInstance->getAttributes(lazy_load:true); $aTinyInstance = new stdClass();
+$aTinyInstance->id = $aInstance->id; $aTinyInstance->display_name =
+$aInstance->display_name; $aTinyInstance->attributes=[];
+foreach($aInstance->attributes as $aAttribute){ $aTinyAttribute = new
+stdClass(); $aTinyAttribute->id = $aAttribute->id; $aTinyAttribute->display_name
+= $aAttribute->display_name; $aTinyAttribute->string_value =
+$aAttribute->string_value; $aTinyAttribute->object_value =
+json_decode($aAttribute->object_value);
+$aTinyInstance->attributes[$aAttribute->display_name] = $aTinyAttribute; } //
+gateway id $aInstance->getParent(); $aInstance->parent->getParent();
+$aInstance->parent->parent->getAttributes(lazy_load:true); $aTinyAttribute = new
+stdClass(); $aTinyAttribute->display_name = 'Gateway ID';
+$aTinyAttribute->string_value =
+$aInstance->parent->parent->attributes['gateway_id']->string_value;
+$aTinyInstance->attributes['gateway_id'] = $aTinyAttribute;
+$aTinyInstance->fancy_name = $aInstance->parent->parent->display_name . '->' .
+$aInstance->parent->display_name . '->' . $aInstance->display_name;
+$aTinyHost->type->instances[$aInstance->id] = $aTinyInstance; } use
+TiqUtilities\Model\Script;
+Script::includeScript('mv_tiny_tools_library.vision_js_sdk'); use
+Joomla\CMS\Factory; $user = Factory::getUser(); ?>
+
+<!-- fabric.js -->
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"
+  integrity="sha512-CeIsOAsgJnmevfCi2C7Zsyy6bQKi43utIjdA87Q0ZY84oDqnI0uwfM9+bKiIkI75lUeI00WG/+uJzOmuHlesMA=="
+  crossorigin="anonymous"
+  referrerpolicy="no-referrer"
+></script>
+
+<div id="app">
+  <div class="row">
+    <div class="col-12">
+      <h1 class="pb-2 pt-2" style="font-size: 2.5rem; color: #126181">
+        {{pageTitle}}
+        <a
+          v-if="true"
+          class="float-end btn btn-sm btn-link mt-2"
+          style="font-size: 1rem; color: #126181"
+          v-bind:href="`/index.php?option=com_modeleditor&view=script&id=${context.std_inputs.script_id}`"
+          target="_blank"
+          >source</a
+        >
+      </h1>
+      <hr style="border-color: #126181; border-width: medium" />
+    </div>
+  </div>
+
+  <duration-picker
+    ref="datePicker"
+    :key="durationPickerKey"
+    :show-player-controls="false"
+    :show-zoom-controls="true"
+    :show-pan-controls="true"
+    :time-periods="tp"
+    :active-time-period="activeTimePeriod"
+    :show-time-periods="true"
+    :timezones="tz"
+    :active-timezone="1"
+    :show-timezones="true"
+    :show-end="true"
+    :show-start-time="true"
+    :show-end-time="true"
+    :zoom-in-factor="0.5"
+    :zoom-out-factor="0.5"
+    :interval-delay="5"
+    :date-diff-in-min="60"
+    mode="dateTime"
+    :start-date="startDate.format()"
+    :end-date="endDate.format()"
+    @on-date-change="duration_picker_onDateChange"
+    @on-zoom="duration_picker_onZoom"
+  ></duration-picker>
+
+  <button class="btn btn-light btn-sm" @click="copyTimePeriod">
+    Copy Time Period
+  </button>
+  <button class="btn btn-light btn-sm" @click="pasteTimePeriod">
+    Paste Time Period
+  </button>
+
+  <br />
+  <hr />
+
+  <div class="row">
+    <div class="col-6">
+      <br />
+      <div style="overflow: auto; max-height: 750px">
+        <table class="table table-sm table-hover">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">start</th>
+              <th scope="col">end</th>
+              <th scope="col">duration</th>
+              <th scope="col">color</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              :style="{borderTop: i==0 || aEvent.startTime.format('mm') != events[i-1].startTime.format('mm') ? 'solid 2px' : '',  backgroundColor: aEvent.isActive ? 'lightgray' : ''}"
+              v-for="(aEvent, i) in events"
+              @click="ToggleActiveEvent(aEvent)"
+            >
+              <th
+                scope="row"
+                :style="imageSteps.find(x=>x.image_step_id==aEvent.image_step_id).isActive ? 'background-color:lightgray;' : ''"
+              >
+                {{aEvent.image_step_id}}
+              </th>
+              <td>
+                {{aEvent.startTime.format('HH:mm:ss.SS')}}<i
+                  v-if="aEvent.hasFocus"
+                  class="ms-2 fa fa-film"
+                  :style="`color:${aEvent.state};`"
+                ></i>
+              </td>
+              <td>{{aEvent.endTime.format('HH:mm:ss.SS')}}</td>
+              <td>
+                {{moment.duration(aEvent.endTime.diff(aEvent.startTime)).format("h
+                [hrs], m [min], s [sec]")}}
+              </td>
+              <td>
+                <i class="fa fa-circle fa-2xl" :style="{color: aEvent.state}" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="col-6">
+      <div v-if="true">
+        <br />
+        Vision DB: {{activeDatabaseName}}<br />
+        Gateway ID: {{activeGatewayId}}<br />
+        Host Name: {{activeHostName}}<br />
+        Step Name: {{activeStepName}}<br />
+        Video Step Name: {{activeVideoStepName}}<br />
+        <hr />
+      </div>
+
+      <div
+        class="row"
+        v-if="activeVideoImageStep.media_links_signed"
+        style="height: 550px"
+      >
+        <video
+          height="500"
+          width="800"
+          :id="videoId"
+          muted=""
+          :style="false ? '' : 'display: none'"
+          class="canvas-img"
+        >
+          <source />
+        </video>
+
+        <canvas v-bind:id="canvasId" resize width="800" height="400"> </canvas>
+
+        <div>
+          <hr />
+          Collection Time: {{activeVideoImageStep.collection_time}}<br />
+          <br />
+          <span v-if="frameTime!=null"
+            >Frame Time: {{frameTime.format('LTS')}}<br
+          /></span>
+          <span v-if="activeColor!=null"
+            >Current Event Color: {{activeColor}}</span
+          >
+          <br />
+          <a target="_blank" :href="activeVideoImageStep.media_links_signed[0]"
+            >Video Link</a
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var WinDoc = window.document;
+
+  // collection of timezones for the duration picker
+  var appTimeZones = [
+      {
+          "id":"1",
+          "name":"US Eastern",
+          "value":"America/New_York"
+      },
+      {
+          "id":"2",
+          "name":"US Central",
+          "value":"America/Chicago"
+      },
+      {
+          "id":"3",
+          "name":"US Mountain",
+          "value":"America/Denver"
+      },
+      {
+          "id":"4",
+          "name":"US Pacific",
+          "value":"America/Los_Angeles"
+      },
+      {
+          "id":"5",
+          "name":"ThinkIQ Asia",
+          "value":"Asia/Kolkata"
+      },
+      {
+          "id":"6",
+          "name":"Europe Amsterdam",
+          "value":"Europe/Amsterdam"
+      },
+      {
+          "id":"7",
+          "name":"Europe Berlin",
+          "value":"Europe/Berlin"
+      },
+      {
+          "id":"8",
+          "name":"UTC",
+          "value":"utc"
+      }
+  ];
+
+  // collection of time periods for the duration picker
+  var appTimePeriods = [
+      {"id":"1","name":"Last 1 minutes","duration":"PT1M","end_date":"now"},
+      {"id":"2","name":"Last 5 minutes","duration":"PT5M","end_date":"now"},
+      {"id":"3","name":"Last 10 minutes","duration":"PT10M","end_date":"now"},
+      {"id":"4","name":"Last 30 minutes","duration":"PT30M","end_date":"now"},
+      {"id":"5","name":"Last 1 hour","duration":"PT1H","end_date":"now"},
+      {"id":"6","name":"Last 2 hour","duration":"PT2H","end_date":"now"},
+      {"id":"7","name":"Last 6 hour","duration":"PT6H","end_date":"now"},
+      {"id":"8","name":"Last 12 hour","duration":"PT12H","end_date":"now"},
+  ];
+
+  // we need a clipboard so we can copy / paste
+  var clipboard = navigator.clipboard;
+
+  // this is the coolest delay function ever
+  // use like this to wait 100ms: await delay(100);
+  // https://levelup.gitconnected.com/how-to-turn-settimeout-and-setinterval-into-promises-6a4977f0ace3
+  function delay(time) {
+      return new Promise(resolve => setTimeout(resolve, time));
+  }
+
+  var app = createApp({
+      // el: "#app",
+      data() {
+          return {
+              moment: moment,
+
+              // stuff for duration picker
+              tz: JSON.stringify(appTimeZones),
+              tp: JSON.stringify(appTimePeriods),
+              startDate: core.moment().tz(appTimeZones[0].value).add(-5,'m'),
+              endDate: core.moment().tz(appTimeZones[0].value),
+              activeTimePeriod: 2,
+              durationPickerKey: 0,
+
+
+              pageTitle: "Color States Detection",
+              context:<?php echo json_encode($context)?>,
+              user:<?php echo json_encode($user)?>,
+              host: <?php echo json_encode($aHost)?>,
+
+              activeDatabaseName: '',
+              activeGatewayId: '',
+              activeHostName: '',
+              activeStepName: '',
+              activeVideoStepName: '',
+
+              imageSteps: [],
+              activeImageStep: {},
+
+              videoImageSteps: [],
+              activeVideoImageStep: {},
+
+              events: [],
+              defaultColors: {},
+
+              canvasId: crypto.randomUUID(),
+              videoId: crypto.randomUUID(),
+
+              video: null,
+              indicatorShape: null,
+              keepRendering: false,
+              frameTime: null,
+              activeColor: ''
+
+          }
+      },
+      mounted: async function () {
+          WinDoc.title = this.pageTitle;
+          console.log("host.attributes>>", this.host.attributes)
+
+          this.activeDatabaseName = Object.values(this.host.attributes).find(x=>x.display_name=='Vision DB Name').string_value;
+          this.activeGatewayId = Object.values(this.host.attributes).find(x=>x.display_name=='Gateway ID').string_value;
+          this.activeHostName = Object.values(this.host.attributes).find(x=>x.display_name=='Host Name (optional)').string_value;
+          this.activeStepName = Object.values(this.host.attributes).find(x=>x.display_name=='Step Name').string_value;
+          this.activeVideoStepName = Object.values(this.host.attributes).find(x=>x.display_name=='Step Name').string_value;
+
+      },
+      computed: {
+          activeTimeZone: function(){
+              return this.$refs.datePicker.timezone=='0' ? null : appTimeZones.find(x=>x.id==this.$refs.datePicker.timezone);
+          },
+          ActiveInstance: function(){
+              return Object.values(this.host.type.instances).find(x=>x.isActive);
+          }
+      },
+      methods: {
+          copyTimePeriod: function(){
+              clipboard.writeText(`{
+                  "start":"${this.startDate.toISOString()}",
+                  "end":"${this.endDate.toISOString()}",
+                  "tz":"${this.activeTimeZone.value}"
+              }`);
+          },
+          pasteTimePeriod: async function(){
+              let data = JSON.parse(await clipboard.readText());
+              let aTimeZone = appTimeZones.find(x=>x.value == data.tz);
+              this.$refs.datePicker.timezone=aTimeZone.id;
+              await delay(100);
+              this.endDate=moment(data.end).tz(aTimeZone.value);
+              await delay(100);
+              this.startDate=moment(data.start).tz(aTimeZone.value);
+              await delay(100);
+              if(this.endDate.valueOf()>this.startDate.valueOf()) await this.fetchStepOutputdata();
+          },
+          duration_picker_onZoom: async function(aZoomInBool, start_date, end_date){
+              await this.duration_picker_onDateChange(start_date, end_date);
+          },
+          duration_picker_onDateChange: async function (start_date, end_date) {
+              let sd = core.moment(start_date);
+              this.startDate = this.activeTimeZone==null ? sd : sd.tz(this.activeTimeZone.value);
+              let ed = core.moment(end_date)
+              this.endDate = this.activeTimeZone==null ? ed : ed.tz(this.activeTimeZone.value);
+
+              if(this.endDate.valueOf()>this.startDate.valueOf()) await this.fetchStepOutputdata();
+          },
+          fetchStepOutputdata: async function(){
+              this.events = [];
+
+              await delay(100);
+
+              let imageSteps = await VisionSdk.GetImageStepsByTimeRangeAsync(this.activeGatewayId, this.activeStepName, this.startDate.format(), this.endDate.format(), true, this.activeDatabaseName);
+              imageSteps.forEach(x=>{
+                  x.isActive = false;
+              });
+              this.imageSteps = imageSteps;
+              let videoImageSteps = await VisionSdk.GetImageStepsByTimeRangeAsync(this.activeGatewayId, this.activeStepName, this.startDate.format(), this.endDate.format(), true, this.activeDatabaseName);
+
+              let recent_media_links_signed = await VisionSdk.GetMediaLinksSignedAsync(videoImageSteps.map(x=>x.images[0]));
+              recent_media_links_signed.forEach((x,i)=>{
+                  videoImageSteps[i].media_links_signed = [x];
+                  videoImageSteps[i].isActive = false;
+              });
+
+              this.videoImageSteps = videoImageSteps;
+
+              let events = [];
+              for(aImageStep of imageSteps){
+                  if(aImageStep.step_output.events){
+                      for(aEvent of aImageStep.step_output.events){
+                          if(!this.defaultColors[aEvent.color_name]){
+                              this.defaultColors[aEvent.color_name] = {
+                                  color: aEvent.color_name,
+                                  cs_label: aEvent.color_name
+                              }
+                          }
+                          events.push({
+                              isActive: false,
+                              hasFocus: false,
+                              image_step_id: aImageStep.image_step_id,
+                              startTime: new moment(aEvent.start_time),
+                              endTime: new moment(aEvent.end_time),
+                              images: [],
+                              d_images: [],
+                              state: aEvent.color_name,
+                              missingMeasures: []
+                          });
+                      }
+                  }
+              }
+              this.events = events.sort((a,b)=>a.startTime<b.startTime ? 1 : -1);
+          },
+
+          ToggleActiveEvent: function(aEvent){
+
+              this.events.filter(x=>x.isActive).forEach(x=>x.isActive=false);
+              this.imageSteps.filter(x=>x.isActive).forEach(x=>x.isActive=false);
+              this.videoImageSteps.filter(x=>x.isActive).forEach(x=>x.isActive=false);
+
+              aEvent.isActive = true;
+
+              this.activeImageStep = this.imageSteps.find(x=>x.image_step_id==aEvent.image_step_id);
+              this.activeImageStep.isActive = true;
+
+              this.activeVideoImageStep = this.videoImageSteps.find(x=>x.collection_time==this.activeImageStep.collection_time);
+              this.activeVideoImageStep.isActive = true;
+
+              this.ProcessCanvasAsync();
+          },
+
+          ProcessCanvasAsync: async function(){
+
+              this.keepRendering = false;
+
+              await delay(100);
+
+              var canvasEl = null;
+              while(canvasEl == null){
+                  canvasEl = document.getElementById(this.canvasId);
+                  await delay(100);
+              }
+
+              await delay(100);
+
+              var canvas = new fabric.Canvas(this.canvasId);
+
+              var video1El = null;
+              while(video1El == null){
+                  video1El = document.getElementById(this.videoId);
+                  video1El.setAttribute("src", this.activeVideoImageStep.media_links_signed[0]);
+                  await delay(100);
+              }
+
+              await delay(100);
+
+
+              this.video = new fabric.Image(video1El, {
+                  left: 0,
+                  top: 0,
+                  width: 800,
+                  height: 480,
+                  angle: 0,
+                  originX: 'left',
+                  originY: 'top',
+                  objectCaching: false
+              });
+
+              // this.video.scaleToWidth(400);
+              // this.video.scaleToHeight(300);
+              this.video.scale(2);
+              console.log("video>>", video)
+              canvas.add(this.video);
+              let startTime = moment(app.activeVideoImageStep.collection_time);
+              let frameTime = (moment(this.events.find(x=>x.isActive).startTime) - startTime) / 1000;
+              this.video.getElement().currentTime = frameTime;
+              this.video.getElement().play();
+
+              this.indicatorShape = new fabric.Circle({
+                  radius: 20, fill: 'green', left: 280, top: 350
+              });
+              canvas.add(this.indicatorShape);
+
+              this.keepRendering = true;
+              fabric.util.requestAnimFrame(function render() {
+
+                  // get timestamp
+                  let startTime = moment(app.activeVideoImageStep.collection_time);
+                  app.frameTime = startTime.add(app.video._element.currentTime, 's');
+                  let eventCandidates = app.events.filter(x=>x.startTime <= app.frameTime && x.endTime > app.frameTime);
+                  app.events.filter(x=>x.hasFocus).forEach(x=>x.hasFocus=false);
+                  if(eventCandidates.length > 0){
+                      const event = eventCandidates[0];
+                      event.hasFocus = true;
+                      app.indicatorShape.set('fill', event.state);
+                      app.activeColor = event.state;
+                      // app.indicatorText.fillColor = event.state;
+                      // app.indicatorText.content = event.state;
+                  }
+
+                  canvas.renderAll();
+                  if(app.keepRendering){
+                      fabric.util.requestAnimFrame(render);
+                  }
+              });
+
+          }
+
+      },
+  })
+  .mount('#app');
+</script>

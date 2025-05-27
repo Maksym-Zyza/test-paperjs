@@ -3,29 +3,35 @@
     <img :src="mediaLink" :id="'img-'+imgId" @load="showFrames" class="img"/>
     <canvas v-if="showAnnotations" :id="'img-canvas-'+imgId" class="img-canvas"></canvas>
   </div>
-  
+
   <div v-if="modalMode=='image' && !showAnnotations">
     <img :src="mediaLink" v-if="!showAnnotations" class="img"/>
   </div>
 </script>
 
 <script>
-const visionMediaAnnotatedImages = {
-  template: "#annotated-images-component-template",
-  props: ["modalMode", "mediaLink", "showAnnotations", "stepOutputData", "imgId", ],
-  data() {
-    return {
-      bboxes: {},
-    };
-  },
-  methods: {
+  const visionMediaAnnotatedImages = {
+    template: "#annotated-images-component-template",
+    props: [
+      "modalMode",
+      "mediaLink",
+      "showAnnotations",
+      "stepOutputData",
+      "imgId",
+    ],
+    data() {
+      return {
+        bboxes: {},
+      };
+    },
+    methods: {
       convertAnnotationsToBboxes(annotations) {
         const bboxes = {};
 
         for (const category in annotations) {
           for (const id in annotations[category]) {
             const item = annotations[category][id];
-            const label = item.label || item.rtype; 
+            const label = item.label || item.rtype;
 
             const coords = [...item.coords];
             if (
@@ -53,28 +59,35 @@ const visionMediaAnnotatedImages = {
           strokeColor: color,
           strokeWidth: 2,
         });
-        // console.log(width, height);
 
-        if(this.showAnnotations){
+        if (this.showAnnotations) {
           const label = document.createElement("div");
           label.className = "label";
           label.textContent = labelText;
           label.style.left = `${x - 1}px`;
-          label.style.top = `${y - 16}px`;
+          label.style.top = `${y - 15}px`;
           label.style.fontSize = `${10}px`;
           label.style.backgroundColor = color;
-          document.getElementById("img-container-"+this.imgId).appendChild(label);
+          document
+            .getElementById("img-container-" + this.imgId)
+            .appendChild(label);
         }
       },
 
       // Init frames
       initBoundingBoxes() {
-        const img = document.getElementById("img-"+this.imgId);
-        const canvas = document.getElementById("img-canvas-"+this.imgId);
+        const img = document.getElementById("img-" + this.imgId);
+        const canvas = document.getElementById("img-canvas-" + this.imgId);
 
-        // Remove old labels
-        const existingLabels = document.querySelectorAll(".label");
-        existingLabels.forEach((label) => label.remove());
+        if (!img.complete || img.naturalWidth === 0) {
+          return;
+        }
+
+        // Remove old labels by img-container-id
+        const container = document.getElementById(
+          "img-container-" + this.imgId
+        );
+        container.querySelectorAll(".label").forEach((label) => label.remove());
 
         // Synchronize size: canvas-image
         canvas.width = img.width;
@@ -94,26 +107,26 @@ const visionMediaAnnotatedImages = {
         ];
 
         categories.forEach(({ label, color }) => {
-        (this.bboxes[label] || []).forEach((box) => {
-          let [x, y, width, height] = box.slice(0, 4);
+          (this.bboxes[label] || []).forEach((box) => {
+            let [x, y, width, height] = box.slice(0, 4);
 
-          // If all coordinates are ≤ 1, assume they are normalized
-          if (x <= 1 && y <= 1 && width <= 1 && height <= 1) {
+            // If all coordinates are ≤ 1, assume they are normalized
+            if (x <= 1 && y <= 1 && width <= 1 && height <= 1) {
               x *= img.width;
               y *= img.height;
               width *= img.width;
               height *= img.height;
-          } else {
-            // Absolute coordinates: scale according to image scale
-            x *= scaleX;
-            y *= scaleY;
-            width *= scaleX;
-            height *= scaleY;
-          }
+            } else {
+              // Absolute coordinates: scale according to image scale
+              x *= scaleX;
+              y *= scaleY;
+              width *= scaleX;
+              height *= scaleY;
+            }
 
-          this.drawBoundingBox([x, y, width, height], color, label);
+            this.drawBoundingBox([x, y, width, height], color, label);
+          });
         });
-      });
 
         paper.view.draw();
       },
@@ -121,7 +134,7 @@ const visionMediaAnnotatedImages = {
       showFrames() {
         this.bboxes = {};
         if (!this.stepOutputData?.annotations && !this.stepOutputData?.bboxes) {
-          return; 
+          return;
         }
 
         if (this.stepOutputData.bboxes) {
@@ -135,7 +148,7 @@ const visionMediaAnnotatedImages = {
         }
 
         this.$nextTick(() => {
-          const img = document.getElementById("img-"+this.imgId);
+          const img = document.getElementById("img-" + this.imgId);
           if (img && this.showAnnotations) {
             img.addEventListener("load", () => {
               this.initBoundingBoxes();
@@ -147,38 +160,38 @@ const visionMediaAnnotatedImages = {
             }
           }
         });
-      }
-  }
-};
+      },
+    },
+  };
 </script>
 
 <style scoped>
-.img-container {
-  position: relative;
-  display: inline-block;
-  overflow: hidden;
-}
+  .img-container {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+  }
 
-.img {
-  display: block;
-  width: 100%;
-  max-width: 1140px;
-  height: auto;
-}
+  .img {
+    display: block;
+    width: 100%;
+    max-width: 1140px;
+    height: auto;
+  }
 
-.img-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 10;
-  pointer-events: none;
-}
+  .img-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
 
-.label {
-  position: absolute;
-  padding: 0 4px;
-  font-family: sans-serif;
-  border-radius: 2px;
-  z-index: 20;
-}
+  .label {
+    position: absolute;
+    padding: 0 4px;
+    font-family: sans-serif;
+    border-radius: 2px;
+    z-index: 20;
+  }
 </style>

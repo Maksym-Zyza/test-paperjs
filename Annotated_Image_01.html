@@ -1,0 +1,164 @@
+<script type="text/x-template" id="annotated-images-component-template">
+  <div v-if="modalMode=='image' && showAnnotations" :id="'img-container-'+imgId" class="img-container">
+    <img :src="mediaLink" :id="'img-'+imgId" @load="showFrames" class="img"/>
+    <canvas v-if="showAnnotations" :id="'img-canvas-'+imgId" class="img-canvas"></canvas>
+  </div>
+  
+  <div v-if="modalMode=='image' && !showAnnotations">
+    <img :src="mediaLink" v-if="!showAnnotations" class="img"/>
+  </div>
+</script>
+
+<script>
+const visionMediaAnnotatedImages = {
+  template: "#annotated-images-component-template",
+  props: ["modalMode", "mediaLink", "showAnnotations", "stepOutputData", "imgId", ],
+  data() {
+    return {
+      bboxes: {},
+    };
+  },
+  methods: {
+      convertAnnotationsToBboxes(annotations) {
+        const bboxes = {};
+
+        for (const category in annotations) {
+          for (const id in annotations[category]) {
+            const item = annotations[category][id];
+            const label = item.label || item.rtype; 
+
+            const coords = [...item.coords];
+            if (
+              item.threshold !== undefined &&
+              typeof item.threshold === "number"
+            ) {
+              coords.push(item.threshold);
+            }
+
+            if (!bboxes[label]) {
+              bboxes[label] = [];
+            }
+
+            bboxes[label].push(coords);
+          }
+        }
+
+        return bboxes;
+      },
+
+      // Create frames
+      drawBoundingBox([x, y, width, height], color, labelText) {
+        new paper.Path.Rectangle({
+          rectangle: new paper.Rectangle(x, y, width, height),
+          strokeColor: color,
+          strokeWidth: 2,
+        });
+        // console.log(width, height);
+
+        if(this.showAnnotations){
+          const label = document.createElement("div");
+          label.className = "label";
+          label.textContent = labelText;
+          label.style.left = `${x - 1}px`;
+          label.style.top = `${y - 16}px`;
+          label.style.fontSize = `${10}px`;
+          label.style.backgroundColor = color;
+          document.getElementById("img-container-"+this.imgId).appendChild(label);
+        }
+      },
+
+      // Init frames
+      initBoundingBoxes() {
+        const img = document.getElementById("img-"+this.imgId);
+        const canvas = document.getElementById("img-canvas-"+this.imgId);
+
+        // Remove old labels
+        const existingLabels = document.querySelectorAll(".label");
+        existingLabels.forEach((label) => label.remove());
+
+        // Synchronize size: canvas-image
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        paper.setup(canvas);
+
+        // Coordinate scaling
+        const scaleX = img.width / img.naturalWidth;
+        const scaleY = img.height / img.naturalHeight;
+
+        // Scaling frames
+        const categories = [
+          { label: "operator", color: "deepskyblue" },
+          { label: "person", color: "lightgreen" },
+          { label: "Workstation", color: "tomato" },
+        ];
+
+        categories.forEach(({ label, color }) => {
+          (this.bboxes[label] || []).forEach((box) => {
+            const [x, y, width, height] = box.slice(0, 4);
+            this.drawBoundingBox(
+              [x * scaleX, y * scaleY, width * scaleX, height * scaleY],
+              color,
+              label
+            );
+          });
+        });
+
+        paper.view.draw();
+      },
+
+      showFrames() {
+        this.bboxes = {};
+        if(!this.stepOutputData?.annotations){
+            return
+        }
+          // this.bboxes = this.stepOutputData.bboxes;
+        this.bboxes = this.convertAnnotationsToBboxes(this.stepOutputData.annotations);
+
+        this.$nextTick(() => {
+          const img = document.getElementById("img-"+this.imgId);
+          if (img && this.showAnnotations) {
+            img.addEventListener("load", () => {
+              this.initBoundingBoxes();
+            });
+
+            // If the image is already cached and does not trigger 'load'
+            if (img.complete) {
+              this.initBoundingBoxes();
+            }
+          }
+        });
+      }
+  }
+};
+</script>
+
+<style scoped>
+.img-container {
+  position: relative;
+  display: inline-block;
+}
+
+.img {
+  display: block;
+  width: 100%;
+  max-width: 1140px;
+  height: auto;
+}
+
+.img-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.label {
+  position: absolute;
+  padding: 0 4px;
+  font-family: sans-serif;
+  border-radius: 2px;
+  z-index: 20;
+}
+</style>

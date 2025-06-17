@@ -59,7 +59,11 @@
         this.clearBoxes();
       },
       showAnnotations(newVal) {
-        if (newVal) this.initFrames();
+        if (newVal) {
+          this.initFrames();
+        } else {
+          this.clearBoxes();
+        }
       },
     },
     methods: {

@@ -1,0 +1,198 @@
+<?php
+/**
+ * Component: annotated-videos-component
+ *
+ * Purpose: This Vue component renders a video player with optional annotation overlays
+ * using bounding boxes derived from Vision SDK step output data.
+ *
+ * Features:
+ * 1. Dynamically displays a video in 'video' mode, with conditional annotation overlays
+ * 2. Parses bounding box data from `stepOutputData.views` and renders it on a canvas
+ * 3. Integrates with Paper.js to draw bounding boxes above the video
+ * 4. Supports both normalized (0–1) and absolute pixel coordinates for annotations
+ * 5. Automatically synchronizes canvas dimensions with the underlying video element
+ * 6. Clears annotations when the media source changes or when annotations are toggled off
+ *
+ * Props:
+ *  - modalMode: (String) Media mode — must be `'video'` to enable this component
+ *  - mediaLink: (String) URL to the video file to display
+ *  - showAnnotations: (Boolean) Whether to show annotation overlays
+ *  - stepOutputData: (Object) Contains `views` object with bounding box arrays
+ *  - videoId: (String | Number) Unique identifier for video and canvas elements
+ *
+ * Dependencies:
+ *  - Paper.js for canvas drawing
+ *  - Native DOM API for accessing video/canvas dimensions and events
+ *
+ * Change Log:
+ *   VERSION     DATE         Author        Description
+ *   v1.0.0      2025-06-17   Maksym        - Initial implementation of annotated-videos-component
+ *                                          - Displays video and synchronized annotation overlays
+ *                                          - Handles video load timing and redraw logic
+ */
+?>
+
+<script type="text/x-template" id="annotated-videos-component-template">
+  <div v-if="modalMode=='video'" :id="'video-container-'+videoId" class="video-container">
+    <video :src="mediaLink" :id="'video-'+videoId" @loadeddata="showFrames" class="video" muted controls controlsList="nofullscreen"/>
+    <canvas v-if="showAnnotations" :id="'video-canvas-'+videoId" class="video-canvas"></canvas>
+  </div>
+</script>
+
+<script>
+  const visionMediaAnnotatedVideos = {
+    template: "#annotated-videos-component-template",
+    props: [
+      "modalMode",
+      "mediaLink",
+      "showAnnotations",
+      "stepOutputData",
+      "videoId",
+    ],
+    data() {
+      return {
+        bboxes: {},
+      };
+    },
+    watch: {
+      mediaLink(newVal, oldVal) {
+        this.clearBoxes();
+      },
+      showAnnotations(newVal) {
+        if (newVal) this.initFrames();
+      },
+    },
+    methods: {
+      // Create frames
+      drawBoundingBox([x, y, width, height], color, labelText) {
+        new paper.Path.Rectangle({
+          rectangle: new paper.Rectangle(x, y, width, height),
+          strokeColor: color,
+          strokeWidth: 2.5,
+        });
+      },
+
+      // Delete frames
+      clearBoxes() {
+        if (
+          paper &&
+          paper.project &&
+          paper.project.activeLayer?.removeChildren
+        ) {
+          paper.project.activeLayer.removeChildren();
+          paper.view.update();
+        }
+      },
+
+      // Init frames
+      initFrames() {
+        this.$nextTick(() => {
+          const video = document.getElementById("video-" + this.videoId);
+          if (!video || !this.showAnnotations) return;
+
+          if (video.readyState >= 2) {
+            this.initBoundingBoxes();
+          } else {
+            const onLoad = () => {
+              requestAnimationFrame(() => this.initBoundingBoxes());
+            };
+            video.addEventListener("loadeddata", onLoad, { once: true });
+          }
+        });
+      },
+
+      initBoundingBoxes() {
+        const video = document.getElementById("video-" + this.videoId);
+        const canvas = document.getElementById("video-canvas-" + this.videoId);
+
+        if (video.readyState < 2 || video.naturalWidth === 0) {
+          return;
+        }
+
+        // Synchronize size: canvas-video
+        canvas.width = video.clientWidth;
+        canvas.height = video.clientHeight;
+
+        paper.setup(canvas);
+
+        const scaleX = video.clientWidth / video.videoWidth;
+        const scaleY = video.clientHeight / video.videoHeight;
+        // console.log("scaleX, scaleY>", scaleX, scaleY)
+
+        const categories = [
+          { label: "region", color: "#ff0000" },
+          // { label: "Workstation", color: "tomato" },
+        ];
+
+        categories.forEach(({ label, color }) => {
+          (this.bboxes[label] || []).forEach((box) => {
+            let [x, y, width, height] = box.slice(0, 4);
+
+            // If all coordinates are ≤ 1, assume they are normalized
+            if (x <= 1 && y <= 1 && width <= 1 && height <= 1) {
+              x *= video.clientWidth;
+              y *= video.clientHeight;
+              width *= video.clientWidth;
+              height *= video.clientHeight;
+            } else {
+              // Absolute coordinates: scale according to video scale
+              x *= scaleX;
+              y *= scaleY;
+              width *= scaleX;
+              height *= scaleY;
+            }
+
+            this.drawBoundingBox([x, y, width, height], color, label);
+          });
+        });
+
+        paper.view.draw();
+      },
+
+      showFrames() {
+        this.bboxes = {};
+        if (!this.stepOutputData?.views) {
+          return;
+        }
+
+        if (this.stepOutputData.views) {
+          for (const label in this.stepOutputData.views) {
+            const entry = this.stepOutputData.views[label];
+            if (Array.isArray(entry) && typeof entry[0] === "number") {
+              this.bboxes[label] = [entry];
+            } else if (Array.isArray(entry) && Array.isArray(entry[0])) {
+              this.bboxes[label] = entry;
+            }
+          }
+        }
+        // console.log("this.bboxes>", this.bboxes)
+
+        this.initFrames();
+      },
+    },
+  };
+</script>
+
+<style scoped>
+  .video-container {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .video {
+    display: block;
+    width: 100%;
+    max-width: 1140px;
+    max-height: 85vh;
+    height: auto;
+  }
+
+  .video-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+</style>

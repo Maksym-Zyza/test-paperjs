@@ -1,11 +1,41 @@
+<?php
+/**
+ * Component: annotated-images-component
+ *
+ * Purpose: This Vue component renders an image with optional annotation overlays
+ * using bounding boxes and category labels derived from Vision SDK step output data.
+ *
+ * Features:
+ * 1. Dynamically displays an image in 'image' mode, conditionally showing annotations
+ * 2. Parses `annotations` or `bboxes` from stepOutputData to render labeled boxes
+ * 3. Integrates with Paper.js to draw bounding boxes on a canvas layer
+ * 4. Displays human-readable category labels (e.g., operator, person, workstation)
+ * 5. Supports both normalized and absolute coordinates for bounding boxes
+ * 6. Removes and redraws bounding boxes on each image load or mode change
+ *
+ * Props:
+ *  - modalMode: (String) Current media mode — must be `'image'` to display annotations
+ *  - mediaLink: (String) Source URL for the image to display
+ *  - showAnnotations: (Boolean) Whether to render annotation overlays
+ *  - stepOutputData: (Object) Contains `annotations` or `bboxes` for rendering
+ *  - imgId: (String | Number) Unique identifier for the image and canvas element
+ *
+ * Dependencies:
+ *  - Paper.js for canvas-based drawing of bounding boxes
+ *  - DOM access for image and canvas element manipulation
+ *
+ * Change Log:
+ *   VERSION     DATE         Author        Description
+ *   v1.0.0      2025-06-05   Maksym        - Initial implementation of annotated-images-component
+ *                                          - Supports bounding box overlays with category labels
+ *                                          - Handles normalized and absolute coordinates
+ */
+?>
+
 <script type="text/x-template" id="annotated-images-component-template">
-  <div v-if="modalMode=='image' && showAnnotations" :id="'img-container-'+imgId" class="img-container">
+  <div v-if="modalMode=='image'" :id="'img-container-'+imgId" class="img-container">
     <img :src="mediaLink" :id="'img-'+imgId" @load="showFrames" class="img"/>
     <canvas v-if="showAnnotations" :id="'img-canvas-'+imgId" class="img-canvas"></canvas>
-  </div>
-
-  <div v-if="modalMode=='image' && !showAnnotations">
-    <img :src="mediaLink" v-if="!showAnnotations" class="img"/>
   </div>
 </script>
 
@@ -23,6 +53,14 @@
       return {
         bboxes: {},
       };
+    },
+    watch: {
+      mediaLink(newVal, oldVal) {
+        this.clearBoxes();
+      },
+      showAnnotations(newVal) {
+        if (newVal) this.initFrames();
+      },
     },
     methods: {
       convertAnnotationsToBboxes(annotations) {
@@ -74,7 +112,39 @@
         }
       },
 
+      // Delete frames
+      clearBoxes() {
+        if (
+          paper &&
+          paper.project &&
+          paper.project.activeLayer?.removeChildren
+        ) {
+          paper.project.activeLayer.removeChildren();
+          paper.view.update();
+        }
+        // Remove old labels by img-container-id
+        const container = document.getElementById(
+          "img-container-" + this.imgId
+        );
+        container.querySelectorAll(".label").forEach((label) => label.remove());
+      },
+
       // Init frames
+      initFrames() {
+        this.$nextTick(() => {
+          const img = document.getElementById("img-" + this.imgId);
+          if (!img || !this.showAnnotations) return;
+
+          const onLoad = () => this.initBoundingBoxes();
+
+          img.addEventListener("load", onLoad, { once: true });
+
+          if (img.complete) {
+            this.initBoundingBoxes();
+          }
+        });
+      },
+
       initBoundingBoxes() {
         const img = document.getElementById("img-" + this.imgId);
         const canvas = document.getElementById("img-canvas-" + this.imgId);
@@ -82,12 +152,6 @@
         if (!img.complete || img.naturalWidth === 0) {
           return;
         }
-
-        // Remove old labels by img-container-id
-        const container = document.getElementById(
-          "img-container-" + this.imgId
-        );
-        container.querySelectorAll(".label").forEach((label) => label.remove());
 
         // Synchronize size: canvas-image
         canvas.width = img.width;
@@ -146,20 +210,9 @@
             this.stepOutputData.annotations
           );
         }
+        // console.log("this.bboxes>", this.bboxes)
 
-        this.$nextTick(() => {
-          const img = document.getElementById("img-" + this.imgId);
-          if (img && this.showAnnotations) {
-            img.addEventListener("load", () => {
-              this.initBoundingBoxes();
-            });
-
-            // If the image is already cached and does not trigger 'load'
-            if (img.complete) {
-              this.initBoundingBoxes();
-            }
-          }
-        });
+        this.initFrames();
       },
     },
   };

@@ -130,7 +130,10 @@
         const container = document.getElementById(
           "img-container-" + this.imgId
         );
-        container.querySelectorAll(".label").forEach((label) => label.remove());
+        container &&
+          container
+            .querySelectorAll(".label")
+            .forEach((label) => label.remove());
       },
 
       // Init frames

@@ -1,0 +1,159 @@
+<!-- x-template for VJSF -->
+<script type="text/x-template" id="json-config-component-template">
+  <div v-if="modalMode == 'config'" class="config-wrapper">
+    <div id="form-mount-point"></div>
+  </div>
+</script>
+
+<!-- Vue 3 -->
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+<!-- VJSF (Vue 3) -->
+<script src="https://cdn.jsdelivr.net/npm/@koumoul/vjsf@3.15.6/src/compat/v2.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/@koumoul/vjsf@3.15.6/src/styles/vjsf.min.css" rel="stylesheet">
+
+<script>
+  const { createApp, defineComponent, nextTick } = Vue;
+
+  const vjsfComponent = window.VueJsonSchemaForm?.default || window.VJSF?.VJsf;
+  if (!vjsfComponent) {
+    console.error("VueJsonSchemaForm (VJSF) not available");
+  } 
+
+  function generateSchemaFromData(data) {
+    const schema = { type: "object", properties: {} };
+    for (const [key, value] of Object.entries(data)) {
+      schema.properties[key] = inferSchemaType(value);
+    }
+    return schema;
+  }
+
+  function inferSchemaType(value) {
+    if (value === null) return { type: "string" };
+    if (typeof value === "string") {
+      return /^\d{4}-\d{2}-\d{2}/.test(value)
+        ? { type: "string", format: "date" }
+        : { type: "string" };
+    }
+    if (typeof value === "number") return { type: "number" };
+    if (typeof value === "boolean") return { type: "boolean" };
+    if (Array.isArray(value)) {
+      return {
+        type: "array",
+        items: value.length ? inferSchemaType(value[0]) : { type: "string" },
+      };
+    }
+    if (typeof value === "object") {
+      const nested = { type: "object", properties: {} };
+      for (const [k, v] of Object.entries(value)) {
+        nested.properties[k] = inferSchemaType(v);
+      }
+      return nested;
+    }
+    return { type: "string" };
+  }
+
+  const visionJsonConfig = defineComponent({
+    name: "visionJsonConfig",
+    props: ["modalMode", "mediaLink", "showAnnotations", "stepOutputData"],
+    data() {
+      return {
+        formAppInstance: null,
+      };
+    },
+    watch: {
+      modalMode(val) {
+        if (val === "config") {
+          nextTick(() => this.initForm());
+        }
+        console.log(
+          "stepOutputData >>",
+          JSON.parse(JSON.stringify(this.stepOutputData))
+        );
+      },
+    },
+    methods: {
+      initForm() {
+        const target = document.getElementById("form-mount-point");
+        if (!target) return;
+
+        target.innerHTML = "";
+
+        const model = JSON.parse(JSON.stringify(this.stepOutputData));
+        const schema = generateSchemaFromData(model);
+
+        const FormComponent = defineComponent({
+          name: "FormComponent",
+          components: { vjsf: vjsfComponent },
+          data() {
+            return {
+              model,
+              schema,
+              formOptions: {
+                validateOnChange: true,
+                validateOnBlur: true,
+              },
+            };
+          },
+          methods: {
+            submitForm() {
+              console.log("Form is valid. Submitting model:", this.model);
+              alert("Form saved!");
+            },
+          },
+          template: `
+            <div>
+              <h4>Model Configuration:</h4>
+              <vjsf :schema="schema" v-model="model" :options="formOptions" />
+              <h4>Model:</h4>
+              <pre>{{ JSON.stringify(model, null, 2) }}</pre>
+              <button @click="submitForm">Save</button>
+            </div>
+          `,
+        });
+
+        if (this.formAppInstance) {
+          this.formAppInstance.unmount();
+          target.innerHTML = "";
+        }
+
+        this.formAppInstance = createApp(FormComponent);
+        this.formAppInstance.mount(target);
+      },
+    },
+    template: `
+      <div v-if="modalMode == 'config'" class="config-wrapper">
+        <div id="form-mount-point"></div>
+      </div>
+    `,
+  });
+
+  createApp({
+    components: { visionJsonConfig },
+    data: {
+      modalMode: "config",
+    },
+    template: `
+      <vision-json-config
+        :modal-mode="modalMode"
+        :media-link="mediaLink"
+        :show-annotations="showAnnotations"
+        :step-output-data="stepOutputData"
+      />
+    `,
+  }).mount("#app");
+</script>
+
+<style>
+  .config-wrapper {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    background-color: aliceblue;
+  }
+  button {
+    margin-top: 10px;
+    padding: 6px 12px;
+    font-size: 1rem;
+  }
+</style>

@@ -1,0 +1,149 @@
+<!-- template -->
+<script type="text/x-template" id="json-config-component-template">
+  <div v-if="modalMode == 'config'" class="config-wrapper">
+    <div id="form-mount-point"></div>
+  </div>
+</script>
+
+<!-- Vue 2 -->
+<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.min.js"></script>
+
+<!-- VJSF (Vue 2 версія) -->
+<script src="https://cdn.jsdelivr.net/npm/@koumoul/vjsf@2.3.4/dist/vjsf.min.js"></script>
+<link
+  href="https://cdn.jsdelivr.net/npm/@koumoul/vjsf@2.3.4/dist/vjsf.min.css"
+  rel="stylesheet"
+/>
+
+<script>
+  function generateSchemaFromData(data) {
+    const schema = { type: "object", properties: {} };
+    for (const [key, value] of Object.entries(data)) {
+      schema.properties[key] = inferSchemaType(value);
+    }
+    return schema;
+  }
+
+  function inferSchemaType(value) {
+    if (value === null) return { type: "string" };
+    if (typeof value === "string") {
+      return /^\d{4}-\d{2}-\d{2}/.test(value)
+        ? { type: "string", format: "date" }
+        : { type: "string" };
+    }
+    if (typeof value === "number") return { type: "number" };
+    if (typeof value === "boolean") return { type: "boolean" };
+    if (Array.isArray(value)) {
+      return {
+        type: "array",
+        items: value.length ? inferSchemaType(value[0]) : { type: "string" },
+      };
+    }
+    if (typeof value === "object") {
+      const nested = { type: "object", properties: {} };
+      for (const [k, v] of Object.entries(value)) {
+        nested.properties[k] = inferSchemaType(v);
+      }
+      return nested;
+    }
+    return { type: "string" };
+  }
+
+  const visionJsonConfig = {
+    template: "#json-config-component-template",
+    props: ["modalMode", "mediaLink", "showAnnotations", "stepOutputData"],
+    data() {
+      return {
+        formAppInstance: null,
+      };
+    },
+    watch: {
+      modalMode(val) {
+        if (val === "config") {
+          this.$nextTick(() => this.initForm());
+        }
+        console.log(
+          "stepOutputData >>",
+          JSON.parse(JSON.stringify(this.stepOutputData))
+        );
+        console.log("window.VJsf >>", window.VJsf);
+      },
+    },
+    methods: {
+      initForm() {
+        const target = document.getElementById("form-mount-point");
+        if (!target) return;
+
+        target.innerHTML = "";
+
+        const model = JSON.parse(JSON.stringify(this.stepOutputData));
+        const schema = generateSchemaFromData(model);
+
+        const formComponent = Vue.extend({
+          components: {
+            vjsf: window.vueJsonSchemaForm,
+          },
+          data() {
+            return {
+              model,
+              schema,
+              formOptions: {
+                validateOnChange: true,
+                validateOnBlur: true,
+              },
+            };
+          },
+          methods: {
+            submitForm() {
+              console.log("Form is valid. Submitting model:", this.model);
+              alert("Form saved!");
+            },
+          },
+          template: `
+            <div>
+              <h4>Model Configuration:</h4>
+              <vjsf :schema="schema" v-model="model" :options="formOptions" />
+              <h4>Model:</h4>
+              <pre>{{ model }}</pre>
+              <button @click="submitForm">Save</button>
+            </div>
+          `,
+        });
+
+        this.formAppInstance = new formComponent().$mount();
+        target.appendChild(this.formAppInstance.$el);
+      },
+    },
+  };
+
+  new Vue({
+    el: "#app",
+    components: { visionJsonConfig },
+    data() {
+      return {
+        modalMode: "config",
+        mediaLink: null,
+        showAnnotations: false,
+        stepOutputData: {
+          timestamp: "2025-06-27",
+          active: true,
+          dpath: {
+            gateway_id: "abc123",
+            nodename: "node-01",
+            camera_id: "cam0",
+          },
+          tags: ["one", "two"],
+        },
+      };
+    },
+  });
+</script>
+
+<style>
+  .config-wrapper {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    background-color: aliceblue;
+  }
+</style>

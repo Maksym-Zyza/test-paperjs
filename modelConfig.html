@@ -1,0 +1,284 @@
+<!-- Template -->
+<script type="text/x-template" id="json-config-component-template">
+  <div v-if="modalMode === 'config'" class="config-wrapper">
+    <v-container>
+      <div>
+        <div class="media panel">Media: {{ mediaLink }}</div>
+        <div class="px-2 py-2 panel">
+          <h4>Model:</h4>
+          <pre style="font-size: 14px">{{ prettyJSON(model) }}</pre>
+        </div>
+      </div>
+
+      <div class="px-2 py-2 panel">
+        <h4>Please select Schema to generate the Model</h4>
+        <v-select
+          :items="schemaOptions"
+          label="Select Schema"
+          v-model="selectedSchemaKey"
+          item-text="name"
+          item-value="key"
+          outlined
+          dense
+        ></v-select>
+
+        <vjsf
+          v-if="schema"
+          ref="vjsf"
+          :schema="schema"
+          v-model="model"
+          :options="options"
+        ></vjsf>
+
+        <v-btn
+          color="primary"
+          @click="submit"
+          class="mt-4"
+          :disabled="!schema"
+        >
+          Save
+        </v-btn>
+      </div>
+    </v-container>
+  </div>
+</script>
+
+<!-- Mount Point -->
+<div id="app-model">
+  <v-app>
+    <json-config-component
+      :modal-mode="tabMode"
+      :media-link="imageStepData.media_links_signed[imageIndex]"
+      :show-annotations="showAnnotations"
+      :step-output-data="imageStepData.step_output"
+    ></json-config-component>
+  </v-app>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+<link
+  href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css"
+  rel="stylesheet"
+/>
+<script src="https://cdn.jsdelivr.net/npm/@koumoul/vjsf@2/dist/main.js"></script>
+<link
+  href="https://cdn.jsdelivr.net/npm/@koumoul/vjsf@2/dist/main.css"
+  rel="stylesheet"
+/>
+<link
+  href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css"
+  rel="stylesheet"
+/>
+
+<!-- Component -->
+<script>
+  const SCHEMAS = {
+    lpr: {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      required: ["function", "input_step"],
+      properties: {
+        function: { type: "string", enum: ["lpr"] },
+        color_space: {
+          type: "string",
+          enum: ["rgb", "bgr", "hsv", "gray"],
+          default: "bgr",
+        },
+        input_crop: {
+          type: ["array", "null"],
+          items: { type: "integer" },
+          minItems: 4,
+          maxItems: 4,
+        },
+        input_image_indexes: {
+          type: "array",
+          items: { type: "integer", minimum: 0 },
+          default: [0],
+        },
+        input_step: { type: "string" },
+        country: { type: "string", default: "us" },
+        plate_region: { type: ["string", "null"] },
+        recognize_vehicle: { type: "boolean", default: true },
+      },
+    },
+    motion_direction: {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      required: ["function", "input_step", "subjects"],
+      properties: {
+        function: { type: "string", enum: ["motion_direction"] },
+        color_space: {
+          type: "string",
+          enum: ["rgb", "bgr", "hsv", "gray"],
+          default: "bgr",
+        },
+        input_crop: {
+          type: ["array", "null"],
+          items: { type: "integer" },
+          minItems: 4,
+          maxItems: 4,
+        },
+        input_image_indexes: {
+          type: "array",
+          items: { type: "integer", minimum: 0 },
+          default: [0, 1],
+        },
+        input_step: { type: "string" },
+        subjects: {
+          type: "object",
+          additionalProperties: {
+            type: "object",
+            required: ["zone", "threshold", "min_area"],
+            properties: {
+              zone: {
+                type: "array",
+                items: { type: "integer" },
+                minItems: 4,
+                maxItems: 4,
+                default: [0, 0, 640, 480],
+              },
+              threshold: {
+                type: "number",
+                minimum: 0,
+                maximum: 1,
+                default: 0.5,
+              },
+              min_area: { type: "integer", minimum: 0, default: 100 },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  Vue.component("json-config-component", {
+    template: "#json-config-component-template",
+    components: {
+      vjsf: window.VJsf.default,
+    },
+    props: {
+      modalMode: String,
+      mediaLink: String,
+      showAnnotations: Boolean,
+      stepOutputData: Object,
+    },
+    data() {
+      return {
+        schemaOptions: [
+          { key: "lpr", name: "LPR Schema" },
+          { key: "motion_direction", name: "Motion Direction Schema" },
+        ],
+        selectedSchemaKey: null,
+        schema: null,
+        model: {},
+        options: {
+          validateAfterLoad: true,
+          validateAfterChanged: true,
+        },
+      };
+    },
+    watch: {
+      selectedSchemaKey(newKey) {
+        if (newKey) {
+          this.setSchema(SCHEMAS[newKey]);
+          this.model = this.createModelFromSchema(SCHEMAS[newKey]);
+        } else {
+          this.schema = null;
+          this.model = {};
+        }
+      },
+    },
+    mounted() {
+      console.log("mediaLink:", this.mediaLink);
+      console.log("showAnnotations:", this.showAnnotations);
+      console.log("stepOutputData:", this.stepOutputData);
+    },
+    methods: {
+      setSchema(schema) {
+        this.schema = schema;
+      },
+      createModelFromSchema(schema) {
+        if (!schema) return null;
+        if (schema.default !== undefined) return schema.default;
+
+        let type = schema.type;
+        if (Array.isArray(type)) {
+          const filtered = type.filter((t) => t !== "null");
+          type = filtered.length > 0 ? filtered[0] : null;
+        }
+
+        if (type === "object") {
+          const obj = {};
+          if (schema.properties) {
+            for (const [key, subschema] of Object.entries(schema.properties)) {
+              obj[key] = this.createModelFromSchema(subschema);
+            }
+          }
+          return obj;
+        }
+
+        if (type === "array") {
+          if (schema.default !== undefined) return schema.default;
+          if (schema.items) {
+            return [this.createModelFromSchema(schema.items)];
+          }
+          return [];
+        }
+
+        switch (type) {
+          case "string":
+            return "";
+          case "integer":
+          case "number":
+            return 0;
+          case "boolean":
+            return false;
+          default:
+            return null;
+        }
+      },
+      submit() {
+        const valid = this.$refs.vjsf.validate();
+        if (valid) {
+          alert("Form is valid. Model saved.");
+          console.log("Model:", this.model);
+        } else {
+          alert("Form has validation errors.");
+        }
+      },
+      prettyJSON(obj) {
+        return JSON.stringify(obj, null, 2);
+      },
+    },
+  });
+
+  new Vue({
+    el: "#app-model",
+    vuetify: new Vuetify(),
+    data: {
+      tabMode: "config",
+      showAnnotations: true,
+      imageIndex: 0,
+      imageStepData: {
+        media_links_signed: ["https://example.com/sample.jpg"],
+        step_output: {},
+      },
+    },
+  });
+</script>
+
+<style>
+  .config-wrapper {
+    padding: 16px;
+    background-color: aliceblue;
+  }
+  .panel {
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    padding: 16px;
+  }
+</style>
